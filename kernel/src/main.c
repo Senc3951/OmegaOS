@@ -1,6 +1,10 @@
 #include <io/io.h>
 #include <assert.h>
+#include <panic.h>
 #include <gui/screen.h>
+#include <arch/gdt.h>
+#include <arch/idt.h>
+#include <arch/pic.h>
 
 extern uint64_t _krnStart, _krnEnd;
 uint64_t _KernelStart, _KernelEnd;
@@ -12,6 +16,13 @@ static void stage1(BootInfo_t *bootInfo)
 
     // Enable screen
     screen_init(bootInfo->fb, bootInfo->font);
+
+    // Enable interrupts
+    gdt_load();
+    idt_load();
+    isr_init();
+    pic_init(IRQ0, IRQ0 + 8, false);
+    __STI();
 }
 
 extern int _entry(BootInfo_t *bootInfo)
@@ -21,7 +32,8 @@ extern int _entry(BootInfo_t *bootInfo)
     
     // Enable core components
     stage1(bootInfo);
-    kprintf("test: %d\n", 234);
+    kprintf("OS Loaded\n");
     
     __HCF();
+    panic("Unreachable");
 }
