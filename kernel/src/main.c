@@ -5,6 +5,7 @@
 #include <arch/gdt.h>
 #include <arch/idt.h>
 #include <arch/pic.h>
+#include <mem/pmm.h>
 
 extern uint64_t _krnStart, _krnEnd;
 uint64_t _KernelStart, _KernelEnd;
@@ -23,6 +24,9 @@ static void stage1(BootInfo_t *bootInfo)
     isr_init();
     pic_init(IRQ0, IRQ0 + 8, false);
     __STI();
+
+    // Initialize memory management
+    pmm_init(bootInfo->mmap, bootInfo->mmapSize, bootInfo->mmapDescriptorSize, bootInfo->fb);
 }
 
 extern int _entry(BootInfo_t *bootInfo)

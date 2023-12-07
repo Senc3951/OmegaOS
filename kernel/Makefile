@@ -11,7 +11,7 @@ OBJ_ASM_FILES = $(patsubst $(SRC_DIR)/%.asm, $(OBJ_DIR)/%.o, $(SRC_ASM_FILES))
 OBJ_C_FILES = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC_C_FILES))
 
 AFLAGS += -Wall
-CFLAGS += -I $(INC_DIR) -ffreestanding -nostdlib  -mno-red-zone -fstack-protector-strong \
+CFLAGS += -I $(INC_DIR) -ffreestanding -nostdlib -mno-red-zone -fstack-protector-strong \
 	-Wall -Wextra -fshort-wchar -Wno-implicit-fallthrough
 LFLAGS += -T $(LINKER_FILE) -static -Bsymbolic -z text -z noexecstack
 

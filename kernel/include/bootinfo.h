@@ -27,7 +27,7 @@ typedef struct PSF1_HEADER
 typedef struct PSF1_FONT
 {
     PSF1Header_t *header;
-    void* glyphBuffer;
+    void *glyphBuffer;
 } __PACKED__ PSF1Font_t;
 
 /// @brief Contains information about memory regions.
