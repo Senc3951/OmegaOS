@@ -1,13 +1,13 @@
 #include <mem/pmm.h>
 #include <assert.h>
 #include <libc/string.h>
+#include <logger.h>
 
 #define INVALID_FRAME_INDEX UINT64_MAX
-#define MMAP_FREE           7
 
 static MemoryDescriptor_t *g_mmap;
 static uint64_t g_mmapSize, g_mmapDescriptorSize;
-static uint64_t g_memStart, g_bitmapSize, g_bitmapElementSize, g_lastFoundBitmap;
+static uint64_t g_bitmapSize, g_bitmapElementSize, g_lastFoundBitmap;
 static uint64_t *g_bitmap;
 
 static void setFrame(const uint64_t index)
@@ -86,7 +86,6 @@ void pmm_init(MemoryDescriptor_t *mmap, const uint64_t mmapSize, const uint64_t 
     g_mmap = mmap;
     g_mmapSize = mmapSize;
     g_mmapDescriptorSize = mmapDescriptorSize; 
-    g_memStart = INT64_MAX;
     g_bitmapElementSize = sizeof(*g_bitmap) * 8;
     g_lastFoundBitmap = 0;
     
@@ -97,9 +96,6 @@ void pmm_init(MemoryDescriptor_t *mmap, const uint64_t mmapSize, const uint64_t 
     for (uint64_t i = 0; i < g_mmapSize / g_mmapDescriptorSize; i++)
     {
         MemoryDescriptor_t *desc = (MemoryDescriptor_t *)((uint64_t)g_mmap + i * g_mmapDescriptorSize);
-        if (desc->physicalStart < g_memStart)
-            g_memStart = desc->physicalStart;
-        
         if (desc->type == MMAP_FREE && desc->numberOfPages > largestMemSegment)
         {
             largestMemSegment = desc->numberOfPages;
@@ -115,6 +111,7 @@ void pmm_init(MemoryDescriptor_t *mmap, const uint64_t mmapSize, const uint64_t 
     g_bitmap = (uint64_t *)largestSegment->physicalStart;
     uint64_t bitmapSizeInBytes = g_bitmapSize * sizeof(*g_bitmap);
     assert(bitmapSizeInBytes < largestMemSegment);  // Segment must be large enough to hold the bitmap
+    LOG("Bitmap: %p (%llu bytes)\n", g_bitmap, bitmapSizeInBytes);
     
     // Reserve entire memory
     memset(g_bitmap, 0xFF, bitmapSizeInBytes);
@@ -135,9 +132,9 @@ void pmm_init(MemoryDescriptor_t *mmap, const uint64_t mmapSize, const uint64_t 
 
     // Reserve kernel
     pmm_reserveRegion(_KernelStart, (_KernelEnd - _KernelStart) / PAGE_SIZE);
-
+    
     // Reserve memory from start to kernel
-    pmm_reserveRegion(g_memStart, (KERNEL_START - g_memStart) / PAGE_SIZE);
+    pmm_reserveRegion(0, _KernelStart / PAGE_SIZE);
 }
 
 void *pmm_getFrame()
@@ -151,10 +148,12 @@ void *pmm_getFrames(const size_t count)
         return NULL;
     
     uint64_t index = getFrames(count);
+    if (index == INVALID_FRAME_INDEX)
+        return NULL;
     for (size_t i = 0; i < count; i++)
         setFrame(index + i);
             
-    return (void *)(g_memStart + index * PAGE_SIZE);
+    return (void *)(index * PAGE_SIZE);
 }
 
 void pmm_releaseFrame(void *addr)
@@ -164,7 +163,7 @@ void pmm_releaseFrame(void *addr)
 
 void pmm_releaseFrames(void *addr, const size_t count)
 {
-    uint64_t index = (uint64_t)addr - g_memStart;
+    uint64_t index = (uint64_t)addr;
     assert(index % PAGE_SIZE == 0 && index / PAGE_SIZE <= g_bitmapSize);
 
     g_lastFoundBitmap = index / PAGE_SIZE;
@@ -198,6 +197,5 @@ uint64_t pmm_getMemorySize()
         memorySize += desc->numberOfPages * PAGE_SIZE;
     }
     
-    memorySize -= g_memStart;
     return memorySize;
 }

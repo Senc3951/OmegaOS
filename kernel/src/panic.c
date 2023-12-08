@@ -22,6 +22,7 @@ void __NO_RETURN__  __kpanic(const char *file, const char *function, const uint6
 void __NO_RETURN__  __ikpanic(InterruptStack_t *stack, const char *fmt, ...)
 {
     __CLI();
+    
     va_list va;
     va_start(va, fmt);
 

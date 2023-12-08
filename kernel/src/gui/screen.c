@@ -1,5 +1,6 @@
 #include <gui/screen.h>
 #include <gui/printf.h>
+#include <libc/string.h>
 
 static Framebuffer_t* g_fb;
 static PSF1Font_t* g_font;
@@ -83,7 +84,11 @@ void kvprintf(va_list va, const char *fmt)
 
 void screen_clear(const uint32_t color)
 {
-    screen_fillrect(0, 0, g_fb->width, g_fb->height, color);
+    if (color == Black)
+        memset(g_fb->baseAddress, 0, g_fb->bufferSize);
+    else
+        screen_fillrect(0, 0, g_fb->width, g_fb->height, color);
+    
     g_x = g_y = 0;
 }
 

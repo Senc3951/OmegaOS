@@ -1,6 +1,7 @@
 #include <arch/isr.h>
 #include <arch/pic.h>
 #include <panic.h>
+#include <logger.h>
 
 static ISRHandler g_handlers[IDT_ENTRIES];
 static bool g_slaveEnabled;
@@ -32,6 +33,8 @@ bool isr_registerHandler(const uint8_t interrupt, const bool autoUnmaskIRQ, ISRH
     }
 
     g_handlers[interrupt] = handler;
+    LOG("Registered a handler for interrupt %u\n", interrupt);
+    
     return true;
 }
 

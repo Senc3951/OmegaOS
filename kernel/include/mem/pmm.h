@@ -2,6 +2,8 @@
 
 #include <bootinfo.h>
 
+#define MMAP_FREE 7
+
 /// @brief Initialize the physical memory manager.
 /// @param mmap Memory map.
 /// @param mmapSize Memory map size.
