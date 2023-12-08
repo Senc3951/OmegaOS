@@ -1,14 +1,14 @@
 include config.mk
 
-.PHONY: run debug build kernel ovmf setup clean
+.PHONY: run debug build kernel initrd setup clean
 
 run: $(OUTPUT_OS_FILE)
 	@echo "\n========== Running $< =========="
-	$(QEMU) $(QFLAGS) -drive file=$<
+	sudo $(QEMU) $(QFLAGS) -drive file=$<
 
 debug: $(OUTPUT_OS_FILE)
 	@echo "\n========== Debugging $< =========="
-	$(QEMU) -s -S $(QFLAGS) -drive file=$<
+	sudo $(QEMU) -s -S $(QFLAGS) -drive file=$<
 
 build: $(OUTPUT_OS_FILE)
 $(OUTPUT_OS_FILE): kernel
@@ -26,11 +26,20 @@ kernel:
 	@echo "========== Building Kernel =========="
 	@$(MAKE) -C $(KERNEL_DIR) build
 
-ovmf:
-	mkdir -p ovmf
-	cd ovmf && curl -Lo OVMF.fd https://retrage.github.io/edk2-nightly/bin/RELEASEX64_OVMF.fd
+initrd: $(INITRD_FILE)
+$(INITRD_FILE):
+	dd if=/dev/zero of=$@ bs=1MiB count=64
+	mkfs.ext2 -b 1024 $@
+	mkdir -p tmp
+	sudo mount -o loop $@ tmp
+	cp .gitignore tmp
+	mkdir tmp/empty
+	mkdir tmp/notempty
+	cp startup.nsh tmp/notempty
+	sudo umount tmp
+	rm -rf tmp
 
-setup: ovmf
+setup: initrd
 	mkdir -p $(OBJ_DIR)
 	mkdir -p $(OUTPUT_DIR)
 	

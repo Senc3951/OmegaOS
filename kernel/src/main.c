@@ -10,6 +10,7 @@
 #include <mem/pmm.h>
 #include <mem/vmm.h>
 #include <mem/heap.h>
+#include <drivers/storage/ide.h>
 
 extern uint64_t _krnStart, _krnEnd;
 uint64_t _KernelStart, _KernelEnd;
@@ -40,7 +41,7 @@ static void stage1(BootInfo_t *bootInfo)
 
 static void stage2()
 {
-    
+    ide_init(ATA_DEVICE);
 }
 
 extern int _entry(BootInfo_t *bootInfo)

@@ -8,24 +8,24 @@ typedef struct HEAP_CHUNK
     struct HEAP_CHUNK *prev;
     bool allocated;
     size_t size;
-} MemoryChunk;
+} HeapChunk_t;
 
-static MemoryChunk *m_head;
+static HeapChunk_t *g_head;
 
 void heap_init(const uint64_t start, const size_t size)
 {
-    assert(size >= sizeof(MemoryChunk));
+    assert(size >= sizeof(HeapChunk_t));
 
-    m_head = (MemoryChunk *)start;
-    m_head->prev = m_head->next = NULL;
-    m_head->size = size - sizeof(MemoryChunk);
-    m_head->allocated = false;
+    g_head = (HeapChunk_t *)start;
+    g_head->prev = g_head->next = NULL;
+    g_head->size = size - sizeof(HeapChunk_t);
+    g_head->allocated = false;
 }
 
 void *kmalloc(const size_t size)
 {
-    MemoryChunk *result = NULL;
-    for (MemoryChunk *chunk = m_head; chunk && !result; chunk = chunk->next)
+    HeapChunk_t *result = NULL;
+    for (HeapChunk_t *chunk = g_head; chunk && !result; chunk = chunk->next)
     {
         if (chunk->size > size && !chunk->allocated)
             result = chunk;
@@ -33,11 +33,11 @@ void *kmalloc(const size_t size)
     
     if (!result)
         return NULL;
-    if (result->size >= size + sizeof(MemoryChunk) + 1)
+    if (result->size >= size + sizeof(HeapChunk_t) + 1)
     {
-        MemoryChunk* temp = (MemoryChunk *)((uint64_t)result + sizeof(MemoryChunk) + size);
+        HeapChunk_t* temp = (HeapChunk_t *)((uint64_t)result + sizeof(HeapChunk_t) + size);
         temp->allocated = false;
-        temp->size = result->size - size - sizeof(MemoryChunk);
+        temp->size = result->size - size - sizeof(HeapChunk_t);
         temp->prev = result;
         temp->next = result->next;
         if (temp->next)
@@ -48,7 +48,7 @@ void *kmalloc(const size_t size)
     }
     
     result->allocated = true;
-    return (void *)((uint64_t)result + sizeof(MemoryChunk));
+    return (void *)((uint64_t)result + sizeof(HeapChunk_t));
 }
 
 void *kcalloc(const size_t size)
@@ -66,7 +66,7 @@ void *krealloc(void *addr, const size_t ns)
     if (!addr)
         return NULL;
     
-    MemoryChunk* chunk = (MemoryChunk *)((uint64_t)addr - sizeof(MemoryChunk));
+    HeapChunk_t* chunk = (HeapChunk_t *)((uint64_t)addr - sizeof(HeapChunk_t));
     assert(chunk->allocated);
     size_t size = chunk->size;
     kfree(addr);
@@ -84,14 +84,14 @@ void kfree(void *addr)
     if (!addr)
         return;
     
-    MemoryChunk* chunk = (MemoryChunk *)((uint64_t)addr - sizeof(MemoryChunk));
+    HeapChunk_t* chunk = (HeapChunk_t *)((uint64_t)addr - sizeof(HeapChunk_t));
     assert(chunk->allocated);
     chunk->allocated = false;
     
     if (chunk->prev && !chunk->prev->allocated)
     {
         chunk->prev->next = chunk->next;
-        chunk->prev->size += chunk->size + sizeof(MemoryChunk);
+        chunk->prev->size += chunk->size + sizeof(HeapChunk_t);
         if (chunk->next)
             chunk->next->prev = chunk->prev;
         
@@ -100,7 +100,7 @@ void kfree(void *addr)
     
     if (chunk->next && !chunk->prev->allocated)
     {
-        chunk->size += chunk->next->size + sizeof(MemoryChunk);
+        chunk->size += chunk->next->size + sizeof(HeapChunk_t);
         chunk->next = chunk->next->next;
         if (chunk->next)
             chunk->next->prev = chunk;
