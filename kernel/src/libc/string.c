@@ -25,3 +25,22 @@ int strncmp(const char *s1, const char *s2, size_t n)
     
     return 0;
 }
+
+char *strtok(char *s, const char *delim)
+{
+    static char *p = NULL;
+    if (!s && ((s = p) == NULL))
+        return NULL;
+    
+    s += strspn(s, delim);
+    if (!*s)
+        return p = NULL;
+    
+    p = s + strcspn(s, delim);
+    if (*p)
+        *p++ = '\0';
+    else 
+        p = NULL;
+    
+    return s;
+}

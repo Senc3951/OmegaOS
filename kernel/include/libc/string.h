@@ -119,3 +119,45 @@ inline char *strncat(char *s1, const char *s2, size_t n)
     
     return ret;
 }
+
+inline char *strchr(const char *s, const char c)
+{
+    while (*s != c && *s != '\0')
+        s++;
+    if (*s == c) 
+        return (char *)s;
+    
+    return NULL;
+}
+
+inline size_t strspn(const char *s1, const char *s2)
+{
+    size_t len = 0;
+    if (!s1 || !s2)
+        return len;
+    
+    while (*s1 && strchr(s2, *s1++))
+        len++;
+    
+    return len;
+}
+
+inline size_t strcspn(const char *s1, const char *s2)
+{
+    size_t len = 0;
+    if (!s1 || !s2)
+        return len;
+    
+    while (*s1)
+    {
+        if (strchr(s2,*s1))
+            return len;
+        
+        s1++;
+        len++;
+    }
+
+    return len;
+}
+
+char *strtok(char *s, const char *delim);
