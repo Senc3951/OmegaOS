@@ -9,6 +9,7 @@
 #include <arch/pic.h>
 #include <mem/pmm.h>
 #include <mem/vmm.h>
+#include <mem/heap.h>
 
 extern uint64_t _krnStart, _krnEnd;
 uint64_t _KernelStart, _KernelEnd;
@@ -19,7 +20,7 @@ static void stage1(BootInfo_t *bootInfo)
     _KernelEnd = (uint64_t)&_krnEnd;
     LOG("Kernel resides at: 0x%x - 0x%x\n", _KernelStart, _KernelEnd);
     
-    // Enable screen
+    // Initialize screen
     screen_init(bootInfo->fb, bootInfo->font);
     LOG("Framebuffer: %p (%ux%ux%u)\n", bootInfo->fb->baseAddress, bootInfo->fb->height, bootInfo->fb->width, bootInfo->fb->bytesPerPixel * 8);
     
@@ -33,6 +34,13 @@ static void stage1(BootInfo_t *bootInfo)
     // Initialize memory management
     pmm_init(bootInfo->mmap, bootInfo->mmapSize, bootInfo->mmapDescriptorSize, bootInfo->fb);
     vmm_init(bootInfo->fb);
+    heap_init(KRN_HEAP_START, KRN_HEAP_SIZE);
+    LOG("Kernel heap: %p - %p\n", KRN_HEAP_START, KRN_HEAP_START + KRN_HEAP_SIZE);
+}
+
+static void stage2()
+{
+    
 }
 
 extern int _entry(BootInfo_t *bootInfo)
@@ -43,7 +51,11 @@ extern int _entry(BootInfo_t *bootInfo)
     
     // Enable core components
     stage1(bootInfo);
-    kprintf("OS loaded\n");
+    
+    // Enable remaining modules
+    stage2();
+    
+    kprintf("Finished initialization\n");
     
     __HCF();
     panic("Unreachable");

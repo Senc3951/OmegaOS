@@ -5,9 +5,11 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-#define _KB 1024ULL
-#define _MB (_KB * 1024)
-#define _GB (_MB * 1024)
+extern uint64_t _KernelStart, _KernelEnd;
+
+#define _KB             1024ULL
+#define _MB             (_KB * 1024)
+#define _GB             (_MB * 1024)
 
 #define IRQ_SLAVE       2
 #define IRQ0            0x20
@@ -17,6 +19,9 @@
 #define KERNEL_DS       0x10
 
 #define PAGE_SIZE       4096
+
+#define KRN_HEAP_START  (_KernelEnd + 4 * _MB)
+#define KRN_HEAP_SIZE   (2 * _MB)
 
 #define RNDUP(num, nm)  (num < nm ? nm : (((num) / nm) * nm))
 #define RNDWN(num, nm)  (((num + nm - 1) / nm) * nm)

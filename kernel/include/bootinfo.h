@@ -2,8 +2,6 @@
 
 #include <common.h>
 
-extern uint64_t _KernelStart, _KernelEnd;
-
 /// @brief Information about the framebuffer.
 typedef struct FRAMEBUFFER
 {

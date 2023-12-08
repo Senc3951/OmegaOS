@@ -5,6 +5,7 @@
 
 bool serial_init()
 {
+#ifdef DEBUG
     outb(SERIAL_PORT + 1, 0x00);    // Disable all interrupts
     outb(SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
     outb(SERIAL_PORT + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
@@ -23,10 +24,15 @@ bool serial_init()
     // (not-loopback with IRQs enabled and OUT#1 and OUT#2 bits enabled)
     outb(SERIAL_PORT + 4, 0x0F);
     return true;
+#else
+    return true;
+#endif
 }
 
 void serial_write(const char c)
 {
+#ifdef DEBUG
     while (TRANSMIT_EMPTY() == 0) ;
     outb(SERIAL_PORT, c);
+#endif
 }
