@@ -25,6 +25,7 @@ extern uint64_t _KernelStart, _KernelEnd;
 
 #define RNDUP(num, nm)  (num < nm ? nm : (((num) / nm) * nm))
 #define RNDWN(num, nm)  (((num + nm - 1) / nm) * nm)
+#define MAX(n1, n2)     (n1 < n2 ? n2 : n1)
 #define UNUSED(x)       (void)(x)
 
 #define __PACKED__      __attribute__((packed))

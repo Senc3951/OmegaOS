@@ -11,6 +11,9 @@
 #include <mem/vmm.h>
 #include <mem/heap.h>
 #include <drivers/storage/ide.h>
+#include <fs/ext2.h>
+
+#include <libc/string.h>
 
 extern uint64_t _krnStart, _krnEnd;
 uint64_t _KernelStart, _KernelEnd;
@@ -41,7 +44,33 @@ static void stage1(BootInfo_t *bootInfo)
 
 static void stage2()
 {
+    // Initialize disk controller
     ide_init(ATA_DEVICE);
+    
+    // Initialize root filesystem
+    ext2_init();
+
+    // Print content of root directory
+    int i = 0;
+    struct dirent *dir;
+    VfsNode_t test;
+    while ((dir = vfs_readdir(_RootFS, i++)))
+    {
+        kprintf("%u -> %s\n", dir->ino, dir->name);
+        if (!strcmp(dir->name, "README.md"))
+        {
+            test.inode = dir->ino;
+            test.flags = FS_FILE;
+        }
+        
+        kfree(dir);
+    }
+    
+    char *buf = kmalloc(1000);
+    uint32_t read = ext2_read(&test, 10, 1000, buf);
+    buf[read] = '\0';
+    kprintf("%u - [%s]\n", read, buf);
+    kfree(buf);
 }
 
 extern int _entry(BootInfo_t *bootInfo)

@@ -70,7 +70,7 @@ extern VfsNode_t *_RootFS;
 uint32_t vfs_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer);
 
 /// @brief Write to a node.
-/// @param node Node to wrote to.
+/// @param node Node to write to.
 /// @param offset Offset to write to.
 /// @param size Amount of bytes to write.
 /// @param buffer Buffer to write.
@@ -102,7 +102,7 @@ VfsNode_t *vfs_finddir(VfsNode_t *node, const char *name);
 /// @param name Name of the file.
 /// @param attr Attributes of the file.
 /// @return Status of the operation.
-int vfs_createFile(const char *name, uint32_t attr);
+int vfs_create(const char *name, uint32_t attr);
 
 /// @brief Create a directory.
 /// @param name Name of the directory.

@@ -3,16 +3,6 @@
 
 static uint16_t g_bus;
 
-static void ataSelect()
-{
-    outb(g_bus + ATA_REG_HDDEVSEL, 0xA0);
-}
-
-static void ataWaitReady()
-{
-    while (inb(g_bus + ATA_REG_STATUS) & ATA_SR_BSY) ;
-}
-
 static void ioWait()
 {
     inb(g_bus + ATA_REG_ALTSTATUS);
@@ -41,8 +31,19 @@ static int ataWait(const int advanced)
     return 0;
 }
 
+static void ataSelect()
+{
+    outb(g_bus + ATA_REG_HDDEVSEL, 0xA0);
+}
+
+static void ataWaitReady()
+{
+    while (inb(g_bus + ATA_REG_STATUS) & ATA_SR_BSY) ;
+}
+
 void ide_init(const uint16_t bus)
 {
+    g_bus = bus;
     outb(bus + 1, 1);
     outb(bus + 0x306, 0);
 
@@ -68,7 +69,7 @@ void ide_init(const uint16_t bus)
     outb(bus + ATA_REG_CONTROL, 0x02);
 }
 
-bool ide_read(const uint32_t sector, void *buffer, const uint32_t count)
+bool ide_read(uint32_t sector, void *buffer, const uint32_t count)
 {
     if (!buffer)
         return false;
@@ -92,12 +93,13 @@ bool ide_read(const uint32_t sector, void *buffer, const uint32_t count)
         
         insm(g_bus, buf + i * ATA_SECTOR_SIZE, ATA_WSECTOR_SIZE);
         ataWait(0);
+        sector++;
     }
     
     return true;
 }
 
-bool ide_write(const uint32_t sector, void *buffer, const uint32_t count)
+bool ide_write(uint32_t sector, void *buffer, const uint32_t count)
 {
     if (!buffer)
         return false;
@@ -122,6 +124,7 @@ bool ide_write(const uint32_t sector, void *buffer, const uint32_t count)
         outsm(g_bus, buf + i * ATA_SECTOR_SIZE, ATA_WSECTOR_SIZE);
         outb(g_bus + 0x07, ATA_CMD_CACHE_FLUSH);
         ataWait(0);
+        sector++;
     }
 
     return true;

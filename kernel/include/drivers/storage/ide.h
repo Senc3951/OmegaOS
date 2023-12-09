@@ -134,11 +134,11 @@ void ide_init(const uint16_t bus);
 /// @param buffer Buffer to read to.
 /// @param count Count of sectors.
 /// @return true if successfully read from the disk, false, otherwise.
-bool ide_read(const uint32_t sector, void *buffer, const uint32_t count);
+bool ide_read(uint32_t sector, void *buffer, const uint32_t count);
 
 /// @brief Write a sector to the disk.
 /// @param sector Sector to write from.
 /// @param buffer Buffer to write from.
 /// @param count Count of sectors.
 /// @return true if successfully wrote to the disk, false, otherwise.
-bool ide_write(const uint32_t sector, void *buffer, const uint32_t count);
+bool ide_write(uint32_t sector, void *buffer, const uint32_t count);

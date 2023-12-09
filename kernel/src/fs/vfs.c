@@ -2,7 +2,6 @@
 #include <mem/heap.h>
 #include <list.h>
 #include <libc/string.h>
-#include <logger.h>
 
 VfsNode_t *_RootFS = NULL;
 
@@ -203,7 +202,7 @@ VfsNode_t *vfs_finddir(VfsNode_t *node, const char *name)
     return NULL;
 }
 
-int vfs_createFile(const char *name, uint32_t attr)
+int vfs_create(const char *name, uint32_t attr)
 {
     char *cwd = "/";    // For now
     char *path = fixPath(cwd, name);    

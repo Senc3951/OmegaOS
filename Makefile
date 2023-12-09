@@ -32,6 +32,7 @@ $(INITRD_FILE):
 	mkfs.ext2 -b 1024 $@
 	mkdir -p tmp
 	sudo mount -o loop $@ tmp
+	cp README.md tmp
 	cp .gitignore tmp
 	mkdir tmp/empty
 	mkdir tmp/notempty
