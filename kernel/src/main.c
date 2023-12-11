@@ -50,27 +50,64 @@ static void stage2()
     // Initialize root filesystem
     ext2_init();
 
-    // Print content of root directory
     int i = 0;
     struct dirent *dir;
-    VfsNode_t test;
+    kprintf("Iterating /\n");
     while ((dir = vfs_readdir(_RootFS, i++)))
     {
-        kprintf("%u -> %s\n", dir->ino, dir->name);
-        if (!strcmp(dir->name, "README.md"))
-        {
-            test.inode = dir->ino;
-            test.flags = FS_FILE;
-        }
-        
+        kprintf("%s %u\n", dir->name, dir->ino);
         kfree(dir);
     }
+        
+    int res = vfs_create("new.txt", 0);
+    int res2 = vfs_mkdir("testdir", 0);
+    if (res == ENOER || res2 == ENOER)
+    {
+        i = 0;
+        kprintf("\nReceived: %d %d\n\n", res, res2);   
+        while ((dir = vfs_readdir(_RootFS, i++)))
+        {
+            kprintf("%s %u\n", dir->name, dir->ino);
+            kfree(dir);
+        }
+    }
+    else
+        kprintf("\nBoth new.txt and testdir already exist\n");
     
-    char *buf = kmalloc(1000);
-    uint32_t read = ext2_read(&test, 10, 1000, buf);
-    buf[read] = '\0';
-    kprintf("%u - [%s]\n", read, buf);
-    kfree(buf);
+    VfsNode_t *newNode = vfs_openFile("notempty", 0);
+    if (!newNode)
+        kprintf("\nFailed opening directory notempty\n");
+    else
+    {
+        i = 0;
+        kprintf("\nIterating notempty\n");
+        while ((dir = vfs_readdir(newNode, i++)))
+        {
+            kprintf("%s %u\n", dir->name, dir->ino);
+            kfree(dir);
+        }
+
+        kfree(newNode);
+    }
+    
+    kprintf("\nReading from .gitignore\n");
+    VfsNode_t *fnode = vfs_openFile(".gitignore", 0);
+    if (!fnode)
+        kprintf("Failed opening .gitignore\n");
+    else
+    {
+        char buffer[101];
+        ssize_t rb = vfs_read(fnode, 2, 100, buffer);
+        if (rb < 0)
+            kprintf("Received error code %u\n", -rb);
+        else
+        {
+            buffer[rb] = '\0';
+            kprintf("Content: {%s}\n", buffer);
+        }
+        
+        kfree(fnode);
+    }
 }
 
 extern int _entry(BootInfo_t *bootInfo)

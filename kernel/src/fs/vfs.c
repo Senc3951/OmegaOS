@@ -88,10 +88,10 @@ static char *fixPath(char *cwd, const char *path)
     return output;
 }
 
-static VfsNode_t *intrnOpen(const char *filename, uint32_t flags)
+VfsNode_t *vfs_openFile(const char *name, uint32_t attr)
 {
     char *cwd = "/";
-    char *path = fixPath(cwd, filename);
+    char *path = fixPath(cwd, name);
     if (!path)
         return NULL;
 
@@ -139,9 +139,8 @@ static VfsNode_t *intrnOpen(const char *filename, uint32_t flags)
         }
         else if (depth == pathDepth - 1)
         {
-            vfs_open(newNode, 1, 0);
+            vfs_open(newNode, attr);
             kfree(path);
-
             return newNode;
         }
         
@@ -152,26 +151,30 @@ static VfsNode_t *intrnOpen(const char *filename, uint32_t flags)
     return newNode;
 }
 
-uint32_t vfs_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
+ssize_t vfs_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
 {
     if (!node || !node->read)
-        return 0;
+        return -EPERM;
+    if ((node->flags & FS_FILE) != FS_FILE)
+        return -EISDIR;
     
     return node->read(node, offset, size, buffer);
 }
 
-uint32_t vfs_write(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
+ssize_t vfs_write(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
 {
     if (!node || !node->write)
-        return 0;
+        return -EPERM;
+    if ((node->flags & FS_FILE) != FS_FILE)
+        return -EISDIR;
     
     return node->write(node, offset, size, buffer);
 }
 
-void vfs_open(VfsNode_t *node, uint8_t read, uint8_t write)
+void vfs_open(VfsNode_t *node, uint32_t attr)
 {
     if (node && node->open)
-        node->open(node, read, write);
+        node->open(node, attr);
 }
 
 void vfs_close(VfsNode_t *node)
@@ -182,10 +185,9 @@ void vfs_close(VfsNode_t *node)
 
 struct dirent *vfs_readdir(VfsNode_t *node, uint32_t index)
 {
-    if (!node)
+    if (!node || !node->readdir)
         return NULL;
-    
-    if ((node->flags & FS_DIR) && node->readdir)
+    if ((node->flags & FS_DIR) == FS_DIR)
         return node->readdir(node, index);
     
     return NULL;
@@ -193,10 +195,9 @@ struct dirent *vfs_readdir(VfsNode_t *node, uint32_t index)
 
 VfsNode_t *vfs_finddir(VfsNode_t *node, const char *name)
 {
-    if (!node)
+    if (!node || !node->finddir)
         return NULL;
-    
-    if ((node->flags & FS_DIR) && node->finddir)
+    if ((node->flags & FS_DIR) == FS_DIR)
         return node->finddir(node, name);
     
     return NULL;
@@ -207,16 +208,15 @@ int vfs_create(const char *name, uint32_t attr)
     char *cwd = "/";    // For now
     char *path = fixPath(cwd, name);    
     if (!path)
-        return -1;
+        return EPERM;
     
     size_t plen = strlen(path);
     char *parentPath = (char *)kmalloc(plen + 4);
     if (!parentPath)
-        return -2;
-
-    memcpy(parentPath, path, plen);
-    strcat(parentPath, "/..");
-    parentPath[plen + 3] = '\0';
+        return ENOMEM;
+    
+    strcpy(parentPath, path);
+    strcpy(parentPath + plen, "/..");
 
     char *tmp = path + plen - 1;
     while (tmp > path)
@@ -231,17 +231,17 @@ int vfs_create(const char *name, uint32_t attr)
     }
     while (*tmp == FS_PATH_SEPERATOR)
         tmp++;
-
-    VfsNode_t *parent = intrnOpen(parentPath, 0);
+    
+    VfsNode_t *parent = vfs_openFile(parentPath, attr);
     kfree(parentPath);
 
     if (!parent)
     {
         kfree(path);
-        return -3;
+        return EPERM;
     }
-
-    int ret = -4;
+    
+    int ret = EPERM;
     if (parent->create)
         ret = parent->create(parent, tmp, attr);
     
@@ -256,16 +256,15 @@ int vfs_mkdir(const char *name, uint32_t attr)
     char *cwd = "/";    // For now
     char *path = fixPath(cwd, name);    
     if (!path)
-        return -1;
-
+        return EPERM;
+    
     size_t plen = strlen(path);
     char *parentPath = (char *)kmalloc(plen + 4);
     if (!parentPath)
-        return -2;
+        return ENOMEM;
     
-    memcpy(parentPath, path, plen);
-    strcat(parentPath, "/..");
-    parentPath[plen + 3] = '\0';
+    strcpy(parentPath, path);
+    strcpy(parentPath + plen, "/..");
 
     char *tmp = path + plen - 1;
     while (tmp > path)
@@ -280,26 +279,17 @@ int vfs_mkdir(const char *name, uint32_t attr)
     }
     while (*tmp == FS_PATH_SEPERATOR)
         tmp++;
-
-    // Check for existance
-    VfsNode_t *thisNode = intrnOpen(path, 0);
-    if (thisNode)
-    {
-        vfs_close(thisNode);
-        kfree(path);
-        
-        return -3;
-    }
-
-    VfsNode_t *parent = intrnOpen(parentPath, 0);
+    
+    VfsNode_t *parent = vfs_openFile(parentPath, attr);
     kfree(parentPath);
+
     if (!parent)
     {
         kfree(path);
-        return -4;
+        return EPERM;
     }
-
-    int ret = -5;
+    
+    int ret = EPERM;
     if (parent->mkdir)
         ret = parent->mkdir(parent, tmp, attr);
     

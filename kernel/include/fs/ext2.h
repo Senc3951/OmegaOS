@@ -19,6 +19,28 @@
 #define I_SYMLINK   0xA000
 #define I_SOCK      0xC000
 
+#define ID_UNKNOWN 0x0
+#define ID_FILE    0x1
+#define ID_DIR     0x2
+#define ID_CHARDEV 0x3
+#define ID_BLKDEV  0x4
+#define ID_FIFO    0x5
+#define ID_SOCK    0x6
+#define ID_SYMLINK 0x7
+
+#define EXT2_IXOTH   0x1
+#define EXT2_IWOTH   0x2
+#define EXT2_IROTH   0x4
+#define EXT2_IRWXO   (EXT2_IXOTH | EXT2_IWOTH | EXT2_IROTH)
+#define EXT2_IXGRP   0x10
+#define EXT2_IWGRP   0x20
+#define EXT2_IRGRP   0x40
+#define EXT2_IRWXG   (EXT2_IXGRP | EXT2_IWGRP | EXT2_IRGRP)
+#define EXT2_IXUSR   0x100
+#define EXT2_IWUSR   0x200
+#define EXT2_IRUSR   0x400
+#define EXT2_IRWXU   (EXT2_IXUSR | EXT2_IWUSR | EXT2_IRUSR)
+
 typedef struct SUPERBLOCK
 {
     uint32_t	s_inodes_count;		/* Inodes count */
@@ -185,7 +207,7 @@ void ext2_init();
 /// @param size Amount of bytes to read.
 /// @param buffer Buffer to read to.
 /// @return Bytes read.
-uint32_t ext2_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer);
+ssize_t ext2_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer);
 
 /// @brief Write to a node.
 /// @param node Node to write to.
@@ -193,13 +215,12 @@ uint32_t ext2_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer);
 /// @param size Amount of bytes to write.
 /// @param buffer Buffer to write.
 /// @return Bytes written.
-uint32_t ext2_write(VfsNode_t *node, uint32_t offset, size_t size, void *buffer);
+ssize_t ext2_write(VfsNode_t *node, uint32_t offset, size_t size, void *buffer);
 
 /// @brief Open a file.
 /// @param node Node to open.
-/// @param read Read access.
-/// @param write Write access.
-void ext2_open(VfsNode_t *node, uint8_t read, uint8_t write);
+/// @param attr Attributes to open the file with.
+void ext2_open(VfsNode_t *node, uint32_t attr);
 
 /// @brief Close a file.
 /// @param node Node to close.
@@ -212,20 +233,20 @@ struct dirent *ext2_readdir(VfsNode_t *node, uint32_t index);
 
 /// @brief Find an entry in a directory.
 /// @param node Directory to search in.
-/// @param path Path of the file to search for.
+/// @param name Name of the file to search for.
 /// @return Found file, NULL, otherwise.
-VfsNode_t *ext2_finddir(VfsNode_t *node, const char *path);
+VfsNode_t *ext2_finddir(VfsNode_t *node, const char *name);
 
 /// @brief Create a file.
 /// @param node Parent directory node.
-/// @param path Path of the file.
+/// @param name Name of the file.
 /// @param attr Attributes of the file.
 /// @return Status of the operation.
-int ext2_create(VfsNode_t *node, const char *path, uint32_t attr);
+int ext2_create(VfsNode_t *node, const char *name, uint32_t attr);
 
 /// @brief Create a directory.
 /// @param node Parent directory node.
-/// @param path Path of the directory.
+/// @param name Name of the directory.
 /// @param attr Attributes of the directory.
 /// @return Status of the operation.
-int ext2_mkdir(VfsNode_t *node, const char *path, uint32_t attr);
+int ext2_mkdir(VfsNode_t *node, const char *name, uint32_t attr);

@@ -4,6 +4,9 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <errno.h>
+
+typedef long ssize_t;
 
 extern uint64_t _KernelStart, _KernelEnd;
 
