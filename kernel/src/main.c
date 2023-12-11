@@ -58,55 +58,57 @@ static void stage2()
         kprintf("%s %u\n", dir->name, dir->ino);
         kfree(dir);
     }
-        
-    int res = vfs_create("new.txt", 0);
-    int res2 = vfs_mkdir("testdir", 0);
-    if (res == ENOER || res2 == ENOER)
-    {
-        i = 0;
-        kprintf("\nReceived: %d %d\n\n", res, res2);   
-        while ((dir = vfs_readdir(_RootFS, i++)))
-        {
-            kprintf("%s %u\n", dir->name, dir->ino);
-            kfree(dir);
-        }
-    }
-    else
-        kprintf("\nBoth new.txt and testdir already exist\n");
     
-    VfsNode_t *newNode = vfs_openFile("notempty", 0);
-    if (!newNode)
-        kprintf("\nFailed opening directory notempty\n");
-    else
+    kprintf("\ncreating test_file.txt\n");
+    int res = vfs_create("test_file.txt", 0);
+    if (res != ENOER)
     {
-        i = 0;
-        kprintf("\nIterating notempty\n");
-        while ((dir = vfs_readdir(newNode, i++)))
+        if (res == EEXIST)
         {
-            kprintf("%s %u\n", dir->name, dir->ino);
-            kfree(dir);
-        }
+            kprintf("File already exists. Reading file\n");
+            VfsNode_t *node = vfs_openFile("test_file.txt", 0);
+            if (!node)
+                kprintf("Failed opening vfsnode of file\n");
+            else
+            {
+                char buffer[100];
+                ssize_t rb = vfs_read(node, 0, 38, buffer);
+                if (rb < 0)
+                    kprintf("Failed reading from file: %ld\n", rb);
+                else
+                {
+                    buffer[rb] = '\0';
+                    kprintf("File content: {%s}\n", buffer);
+                }
 
-        kfree(newNode);
+                kfree(node);
+            }
+        }
+        else
+            kprintf("failed creating file\n");
     }
-    
-    kprintf("\nReading from .gitignore\n");
-    VfsNode_t *fnode = vfs_openFile(".gitignore", 0);
-    if (!fnode)
-        kprintf("Failed opening .gitignore\n");
     else
     {
-        char buffer[101];
-        ssize_t rb = vfs_read(fnode, 2, 100, buffer);
-        if (rb < 0)
-            kprintf("Received error code %u\n", -rb);
+        kprintf("File doesn't exist. created successfully\n");
+        
+        char buffer[] = "hello world\nthis is a testing buffer!";
+        VfsNode_t *node = vfs_openFile("test_file.txt", 0);
+        if (!node)
+            kprintf("Failed opening vfsnode of file\n");
         else
         {
-            buffer[rb] = '\0';
-            kprintf("Content: {%s}\n", buffer);
+            kprintf("Writing in bad offset, expected to fail\n");
+            ssize_t wb = vfs_write(node, 1, sizeof(buffer), buffer);
+            kprintf("Received: %ld\n", wb);
+            kprintf("Writing normal\n");
+            wb = vfs_write(node, 0, sizeof(buffer), buffer);
+            kprintf("Received: %ld\n", wb);
+
+            if (wb < 0)
+                kprintf("Writing failed!\n");
         }
         
-        kfree(fnode);
+        kfree(node);
     }
 }
 
