@@ -1,4 +1,6 @@
 #include <mem/heap.h>
+#include <mem/pmm.h>
+#include <mem/vmm.h>
 #include <assert.h>
 #include <libc/string.h>
 
@@ -15,7 +17,13 @@ static HeapChunk_t *g_head;
 void heap_init(const uint64_t start, const size_t size)
 {
     assert(size >= sizeof(HeapChunk_t));
-
+    for (size_t i = 0; i < RNDUP(size, PAGE_SIZE) / PAGE_SIZE; i++)
+    {
+        void *phys = pmm_getFrame();
+        assert(phys);
+        vmm_mapPage(phys, (void *)(start + i * PAGE_SIZE), VMM_DEFAULT_ATTRIBUTES);
+    }
+    
     g_head = (HeapChunk_t *)start;
     g_head->prev = g_head->next = NULL;
     g_head->size = size - sizeof(HeapChunk_t);

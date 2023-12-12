@@ -250,3 +250,8 @@ int ext2_create(VfsNode_t *node, const char *name, uint32_t attr);
 /// @param attr Attributes of the directory.
 /// @return Status of the operation.
 int ext2_mkdir(VfsNode_t *node, const char *name, uint32_t attr);
+
+/// @brief Get the size of a file.
+/// @param node File to get the size of.
+/// @return Size of the file.
+long ext2_ftell(VfsNode_t *node);

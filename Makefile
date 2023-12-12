@@ -26,12 +26,11 @@ kernel:
 	@echo "========== Building Kernel =========="
 	@$(MAKE) -C $(KERNEL_DIR) build
 
-initrd: $(INITRD_FILE)
-$(INITRD_FILE):
-	dd if=/dev/zero of=$@ bs=1MiB count=64
-	mkfs.ext2 -b 1024 $@
+initrd:
+	dd if=/dev/zero of=$(INITRD_FILE) bs=1MiB count=64
+	mkfs.ext2 -b 1024 $(INITRD_FILE)
 	mkdir -p tmp
-	sudo mount -o loop $@ tmp
+	sudo mount -o loop $(INITRD_FILE) tmp
 	cp .gitignore tmp
 	cp README.md tmp
 	mkdir tmp/empty

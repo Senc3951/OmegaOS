@@ -49,67 +49,6 @@ static void stage2()
     
     // Initialize root filesystem
     ext2_init();
-
-    int i = 0;
-    struct dirent *dir;
-    kprintf("Iterating /\n");
-    while ((dir = vfs_readdir(_RootFS, i++)))
-    {
-        kprintf("%s %u\n", dir->name, dir->ino);
-        kfree(dir);
-    }
-    
-    kprintf("\ncreating test_file.txt\n");
-    int res = vfs_create("test_file.txt", 0);
-    if (res != ENOER)
-    {
-        if (res == EEXIST)
-        {
-            kprintf("File already exists. Reading file\n");
-            VfsNode_t *node = vfs_openFile("test_file.txt", 0);
-            if (!node)
-                kprintf("Failed opening vfsnode of file\n");
-            else
-            {
-                char buffer[100];
-                ssize_t rb = vfs_read(node, 0, 38, buffer);
-                if (rb < 0)
-                    kprintf("Failed reading from file: %ld\n", rb);
-                else
-                {
-                    buffer[rb] = '\0';
-                    kprintf("File content: {%s}\n", buffer);
-                }
-
-                kfree(node);
-            }
-        }
-        else
-            kprintf("failed creating file\n");
-    }
-    else
-    {
-        kprintf("File doesn't exist. created successfully\n");
-        
-        char buffer[] = "hello world\nthis is a testing buffer!";
-        VfsNode_t *node = vfs_openFile("test_file.txt", 0);
-        if (!node)
-            kprintf("Failed opening vfsnode of file\n");
-        else
-        {
-            kprintf("Writing in bad offset, expected to fail\n");
-            ssize_t wb = vfs_write(node, 1, sizeof(buffer), buffer);
-            kprintf("Received: %ld\n", wb);
-            kprintf("Writing normal\n");
-            wb = vfs_write(node, 0, sizeof(buffer), buffer);
-            kprintf("Received: %ld\n", wb);
-
-            if (wb < 0)
-                kprintf("Writing failed!\n");
-        }
-        
-        kfree(node);
-    }
 }
 
 extern int _entry(BootInfo_t *bootInfo)

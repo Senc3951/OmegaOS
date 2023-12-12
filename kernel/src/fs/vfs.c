@@ -298,3 +298,13 @@ int vfs_mkdir(const char *name, uint32_t attr)
     
     return ret;
 }
+
+long vfs_ftell(VfsNode_t *node)
+{
+    if (!node || !node->ftell)
+        return -EPERM;
+    if ((node->flags & FS_FILE) != FS_FILE)
+        return -EISDIR;
+    
+    return node->ftell(node);
+}

@@ -31,14 +31,15 @@
 
 typedef struct VFS_NODE VfsNode_t;
 
-typedef ssize_t (*read_type_t) (VfsNode_t *,  uint32_t, size_t, void *);
-typedef ssize_t (*write_type_t) (VfsNode_t *, uint32_t, size_t, void *);
-typedef void (*open_type_t) (VfsNode_t *, uint32_t);
-typedef void (*close_type_t) (VfsNode_t *);
-typedef struct dirent *(*readdir_type_t) (VfsNode_t *, uint32_t);
-typedef VfsNode_t *(*finddir_type_t) (VfsNode_t *, const char *);
-typedef int (*create_type_t) (VfsNode_t *, const char *, uint32_t);
-typedef int (*mkdir_type_t) (VfsNode_t *, const char *, uint32_t);
+typedef ssize_t (*read_type_t)(VfsNode_t *,  uint32_t, size_t, void *);
+typedef ssize_t (*write_type_t)(VfsNode_t *, uint32_t, size_t, void *);
+typedef void (*open_type_t)(VfsNode_t *, uint32_t);
+typedef void (*close_type_t)(VfsNode_t *);
+typedef struct dirent *(*readdir_type_t)(VfsNode_t *, uint32_t);
+typedef VfsNode_t *(*finddir_type_t)(VfsNode_t *, const char *);
+typedef int (*create_type_t)(VfsNode_t *, const char *, uint32_t);
+typedef int (*mkdir_type_t)(VfsNode_t *, const char *, uint32_t);
+typedef long (*ftell_type_t)(VfsNode_t *);
 
 struct VFS_NODE
 {
@@ -63,6 +64,7 @@ struct VFS_NODE
     finddir_type_t finddir;
     create_type_t create;
     mkdir_type_t mkdir;
+    ftell_type_t ftell;
 };
 
 typedef struct dirent
@@ -126,3 +128,8 @@ int vfs_create(const char *name, uint32_t attr);
 /// @param attr Attributes of the directory.
 /// @return Status of the operation.
 int vfs_mkdir(const char *name, uint32_t attr);
+
+/// @brief Get the size of a file.
+/// @param node File to get the size of.
+/// @return Size of the file.
+long vfs_ftell(VfsNode_t *node);

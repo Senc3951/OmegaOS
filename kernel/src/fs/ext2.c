@@ -24,7 +24,37 @@ static uint32_t g_blockSize, g_blockGroupDescriptorCount;
 #define SINGLE_IND_PTR_BLOCKS   (PTR_BLOCKS_PER_BLOCK)
 #define DOUBLE_IND_PTR_BLOCKS   (SINGLE_IND_PTR_BLOCKS * PTR_BLOCKS_PER_BLOCK)
 #define TRIPLE_IND_PTR_BLOCKS   (DOUBLE_IND_PTR_BLOCKS * PTR_BLOCKS_PER_BLOCK)
-#define SECTOR2BLOCK(sector)    (sector * ATA_SECTOR_SIZE / g_blockSize)
+#define SECTOR2BLOCK(sector)    ((sector + 1) * ATA_SECTOR_SIZE / g_blockSize)
+
+#define FIND_AND_MARK_BIT(bitmap, foundLabel) ({    \
+    bit = 0;                                        \
+    for (uint32_t k = 0; k < g_blockSize; k++) {    \
+        if (bitmap[k] != UINT8_MAX) {               \
+            for (uint32_t j = 0; j < 8; j++) {      \
+                if (!(bitmap[k] & (1 << j))) {      \
+                    bitmap[k] |= (1 << j);          \
+                    goto foundLabel;                \
+                }                                   \
+                                                    \
+                bit++;                              \
+            }                                       \
+        }                                           \
+        else                                        \
+            bit += 8;   /* Entries per byte */      \
+    }                                               \
+})
+
+#define GET_DIR_ENTRY_SIZE(nl) ({               \
+    uint32_t es = sizeof(Directory_t) + nl + 1; \
+    es += (es % 2 == 0) ? 2 : 1;                \
+    es;                                         \
+})
+
+#define INIT_INODE(inode) ({                        \
+    memset(inode, 0, g_superBlock.s_inode_size);    \
+    inode->i_mode = attr;                           \
+    /* TODO: set a/c/m time. */                     \
+})
 
 static uint8_t getFileType(const uint32_t attr)
 {
@@ -120,7 +150,7 @@ static uint32_t getRealBlock(Inode_t *inode, const uint32_t block)
         if (!readBlock(inode->i_block[EXT2_DIND_BLOCK], g_tmpBuf))
             return false;
 
-        uint32_t b = (block - EXT2_IND_BLOCK) / PTR_BLOCKS_PER_BLOCK;
+        uint32_t b = (block - EXT2_DIND_BLOCK) / PTR_BLOCKS_PER_BLOCK;
         uint32_t c = b / PTR_BLOCKS_PER_BLOCK;
         uint32_t d = b - c * PTR_BLOCKS_PER_BLOCK;
         
@@ -133,7 +163,28 @@ static uint32_t getRealBlock(Inode_t *inode, const uint32_t block)
     }
     else if (block < EXT2_IND_BLOCK + TRIPLE_IND_PTR_BLOCKS + DOUBLE_IND_PTR_BLOCKS + SINGLE_IND_PTR_BLOCKS)  // Triple indirect
     {
-        // TODO   
+        // Read triple indirect block
+        if (!readBlock(inode->i_block[EXT2_TIND_BLOCK], g_tmpBuf))
+            return false;
+        
+        uint32_t b = block - EXT2_TIND_BLOCK - PTR_BLOCKS_PER_BLOCK;
+        uint32_t c = b - PTR_BLOCKS_PER_BLOCK * PTR_BLOCKS_PER_BLOCK;
+        uint32_t d = c / (PTR_BLOCKS_PER_BLOCK * PTR_BLOCKS_PER_BLOCK);
+        uint32_t e = c - d * PTR_BLOCKS_PER_BLOCK * PTR_BLOCKS_PER_BLOCK;
+        uint32_t f = e / PTR_BLOCKS_PER_BLOCK;
+        uint32_t g = e - f * PTR_BLOCKS_PER_BLOCK;
+
+        // Read double indirect block
+        uint32_t doubleIndirectBlock = ((uint32_t *)g_tmpBuf)[d];
+        if (!readBlock(doubleIndirectBlock, g_tmpBuf))
+            return false;
+
+        // Read single indirect block
+        uint32_t singleIndirectBlock = ((uint32_t *)g_tmpBuf)[f];
+        if (!readBlock(singleIndirectBlock, g_tmpBuf))
+            return false;
+        
+        return ((uint32_t *)g_tmpBuf)[g];
     }
     
     return 0;
@@ -160,8 +211,8 @@ static bool setRealBlock(Inode_t *inode, const uint32_t block, const uint32_t re
         // Read double indirect block
         if (!readBlock(inode->i_block[EXT2_DIND_BLOCK], g_tmpBuf))
             return false;
-
-        uint32_t b = (block - EXT2_IND_BLOCK) / PTR_BLOCKS_PER_BLOCK;
+        
+        uint32_t b = (block - EXT2_DIND_BLOCK) / PTR_BLOCKS_PER_BLOCK;
         uint32_t c = b / PTR_BLOCKS_PER_BLOCK;
         uint32_t d = b - c * PTR_BLOCKS_PER_BLOCK;
         
@@ -175,7 +226,29 @@ static bool setRealBlock(Inode_t *inode, const uint32_t block, const uint32_t re
     }
     else if (block < EXT2_IND_BLOCK + TRIPLE_IND_PTR_BLOCKS + DOUBLE_IND_PTR_BLOCKS + SINGLE_IND_PTR_BLOCKS)  // Triple indirect
     {
-        // TODO   
+        // Read triple indirect block
+        if (!readBlock(inode->i_block[EXT2_TIND_BLOCK], g_tmpBuf))
+            return false;
+        
+        uint32_t b = block - EXT2_TIND_BLOCK - PTR_BLOCKS_PER_BLOCK;
+        uint32_t c = b - PTR_BLOCKS_PER_BLOCK * PTR_BLOCKS_PER_BLOCK;
+        uint32_t d = c / (PTR_BLOCKS_PER_BLOCK * PTR_BLOCKS_PER_BLOCK);
+        uint32_t e = c - d * PTR_BLOCKS_PER_BLOCK * PTR_BLOCKS_PER_BLOCK;
+        uint32_t f = e / PTR_BLOCKS_PER_BLOCK;
+        uint32_t g = e - f * PTR_BLOCKS_PER_BLOCK;
+
+        // Read double indirect block
+        uint32_t doubleIndirectBlock = ((uint32_t *)g_tmpBuf)[d];
+        if (!readBlock(doubleIndirectBlock, g_tmpBuf))
+            return false;
+
+        // Read single indirect block
+        uint32_t singleIndirectBlock = ((uint32_t *)g_tmpBuf)[f];
+        if (!readBlock(singleIndirectBlock, g_tmpBuf))
+            return false;
+        
+        ((uint32_t *)g_tmpBuf)[g] = real;
+        return true;
     }
     
     return false;
@@ -197,28 +270,8 @@ static bool allocateBlock(Inode_t *inode, const uint32_t ino, uint32_t block)
                 kfree(blockBitmap);   
                 return NULL;
             }
-
-            bit = 0;
-            for (uint32_t k = 0; k < g_blockSize; k++)
-            {
-                if (blockBitmap[k] != UINT8_MAX)
-                {
-                    for (uint32_t j = 0; j < 8; j++)
-                    {
-                        // Find and mark the bit
-                        if (!(blockBitmap[k] & (1 << j)))
-                        {
-                            blockBitmap[k] |= (1 << j);
-                            goto found_bit;
-                        }
-                        
-                        bit++;
-                    }
-                }
-                else
-                    bit += 8;   // Entries per byte
-            }
             
+            FIND_AND_MARK_BIT(blockBitmap, found_bit);    // Jump if found a bit
             continue;   // Continue to the next group descriptor
         }
           
@@ -239,7 +292,7 @@ found_bit:
     if (!setRealBlock(inode, block, newBlock))
         return false;
     
-    // Update block count        
+    // Update block count
     inode->i_sectors += SECTORS_PER_BLOCK;
     writeInode(ino, inode);
     
@@ -277,8 +330,7 @@ static bool insertInodeInDir(Inode_t *parentInode, uint32_t pino, const uint32_t
     
     // Find the last entry
     Directory_t *dir = (Directory_t *)tmpBuf;
-    uint32_t currentSize = 0, newEntrySize = sizeof(Directory_t) + strlen(name) + 1;
-    newEntrySize += (newEntrySize % 2 == 0) ? 2 : 1;
+    uint32_t oldSize, currentEntrySize, currentSize = 0, newEntrySize = GET_DIR_ENTRY_SIZE(strlen(name));
     
     while (true)
     {
@@ -286,22 +338,14 @@ static bool insertInodeInDir(Inode_t *parentInode, uint32_t pino, const uint32_t
         if (currentSize >= g_blockSize)
         {
             // Check if the last entry is big enough to hold another entry
-            uint32_t oldSize = dir->rec_len, currentEntrySize = sizeof(Directory_t) + dir->name_len + 1;
-            currentEntrySize += (currentEntrySize % 2 == 0) ? 2 : 1;
+            oldSize = dir->rec_len, currentEntrySize = GET_DIR_ENTRY_SIZE(dir->name_len);
             if (currentEntrySize + newEntrySize <= dir->rec_len)
             {
                 dir->rec_len = currentEntrySize;
+                dir = (Directory_t *)(((uint8_t *)dir) + dir->rec_len);
                 
                 // Write the new entry
-                dir = (Directory_t *)(((uint8_t *)dir) + dir->rec_len);
-                dir->inode = newIno;
-                strcpy(dir->name, name);
-                dir->name_len = strlen(name);
-                dir->rec_len = oldSize - currentEntrySize;
-                dir->file_type = ft;
-                
-                kfree(tmpBuf);
-                return writeInodeBlock(parentInode, pino, lastBlock, tmpBuf);
+                goto write;
             }
             
             // No more place in the current block
@@ -310,11 +354,33 @@ static bool insertInodeInDir(Inode_t *parentInode, uint32_t pino, const uint32_t
         
         dir = (Directory_t *)(((uint8_t *)dir) + dir->rec_len);
     }
-
-    // TODO
     
+    // Allocate a new block
+    LOG("allocating new block for dir %u\n", pino);
+    if (!allocateBlock(parentInode, pino, ++lastBlock))
+    {
+        kfree(tmpBuf);
+        return false;
+    }
+    if (!readInodeBlock(parentInode, lastBlock, tmpBuf))
+    {
+        kfree(tmpBuf);
+        return false;
+    }
+
+    dir = (Directory_t *)tmpBuf;
+    oldSize = g_blockSize;
+    
+write:
+    dir->inode = newIno;
+    strcpy(dir->name, name);
+    dir->name_len = strlen(name);
+    dir->rec_len = oldSize - currentEntrySize;
+    dir->file_type = ft;
+    
+    bool ret = writeInodeBlock(parentInode, pino, lastBlock, tmpBuf);
     kfree(tmpBuf);
-    return false;
+    return ret;
 }
 
 static Inode_t *createInode(Inode_t *parentInode, const uint32_t pino, const char *name, uint32_t attr, uint32_t *newIno)
@@ -334,27 +400,7 @@ static Inode_t *createInode(Inode_t *parentInode, const uint32_t pino, const cha
                 return NULL;
             }
             
-            bit = 0;
-            for (uint32_t k = 0; k < g_blockSize; k++)
-            {
-                if (inodeBitmap[k] != UINT8_MAX)
-                {
-                    for (uint32_t j = 0; j < 8; j++)
-                    {
-                        // Find and mark the bit
-                        if (!(inodeBitmap[k] & (1 << j)))
-                        {
-                            inodeBitmap[k] |= (1 << j);
-                            goto found_bit;
-                        }
-                        
-                        bit++;
-                    }
-                }
-                else
-                    bit += 8;   // Entries per byte
-            }
-            
+            FIND_AND_MARK_BIT(inodeBitmap, found_bit);    // Jump if found a bit
             continue;   // Continue to the next group descriptor
         }
         
@@ -367,39 +413,30 @@ found_bit:
         break;
     }
 
+    kfree(inodeBitmap);
     if (!newInoNum)
         return NULL;
     
     Inode_t *inode = readInode(newInoNum);
     if (!inode)
-    {
-        kfree(inodeBitmap);
         return NULL;
-    }
     
     // Write the new inode
-    inode->i_size = inode->i_sectors = 0;
-    inode->i_mode = attr;
-    for (uint32_t i = 0; i < sizeof(inode->i_block) / sizeof(*inode->i_block); i++)
-        inode->i_block[i] = 0;
+    INIT_INODE(inode);
     
     if (!writeInode(newInoNum, inode))
     {
         kfree(inode);
-        kfree(inodeBitmap);
         return NULL;
     }
 
     if (!insertInodeInDir(parentInode, pino, newInoNum, name, getFileType(attr)))
     {
         kfree(inode);
-        kfree(inodeBitmap);
         return NULL;
     }
     
-    *newIno = newInoNum;
-    kfree(inodeBitmap);
-    
+    *newIno = newInoNum;    
     return inode;
 }
 
@@ -435,6 +472,7 @@ static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
         node->finddir = NULL;
         node->create = NULL;
         node->mkdir = NULL;
+        node->ftell = ext2_ftell;
     }
     if ((mask & I_DIR) == I_DIR)
     {
@@ -443,6 +481,7 @@ static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
         node->finddir = ext2_finddir;
         node->create = ext2_create;
         node->mkdir = ext2_mkdir;
+        node->ftell = NULL;
     }
     if ((mask & I_BLKDEV) == I_BLKDEV)
         node->flags |= FS_BLKDEV;
@@ -504,9 +543,15 @@ ssize_t ext2_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
     if (!inode)
         return -EEXIST;
     if (!INODE_FILE(inode))
+    {
+        kfree(inode);
         return -EISDIR;
+    }
     if (size + offset > inode->i_size)
+    {
+        kfree(inode);
         return -ESPIPE;
+    }
     
     uint8_t *tmpBuf = (uint8_t *)kmalloc(g_blockSize);
     if (!tmpBuf)
@@ -518,11 +563,9 @@ ssize_t ext2_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
     ssize_t readBytes = 0;
     uint32_t startBlock = offset / g_blockSize;
     uint32_t endBlock = (offset + size) / g_blockSize;
-    if (startBlock == endBlock)
-        endBlock++;
-
+    
     uint8_t *pBuf = (uint8_t *)buffer;
-    for (uint32_t block = startBlock; block < endBlock; block++)
+    for (uint32_t block = startBlock; block <= endBlock; block++)
     {
         // Handle offset in case of starting or ending block
         if (block == startBlock)
@@ -580,9 +623,15 @@ ssize_t ext2_write(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
     if (!inode)
         return -EEXIST;
     if (!INODE_FILE(inode))
+    {
+        kfree(inode);
         return -EISDIR;
+    }
     if (offset > inode->i_size)
+    {
+        kfree(inode);
         return -ESPIPE;
+    }
 
     uint8_t *tmpBuf = (uint8_t *)kmalloc(g_blockSize);
     if (!tmpBuf)
@@ -594,11 +643,9 @@ ssize_t ext2_write(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
     ssize_t writtenBytes = 0;
     uint32_t startBlock = offset / g_blockSize;
     uint32_t endBlock = (offset + size) / g_blockSize;
-    if (startBlock == endBlock)
-        endBlock++;
     
     uint8_t *pBuf = (uint8_t *)buffer;
-    for (uint32_t block = startBlock; block < endBlock; block++)
+    for (uint32_t block = startBlock; block <= endBlock; block++)
     {
         // Handle offset in case of starting or ending block
         if (block == startBlock)
@@ -688,8 +735,13 @@ void ext2_close(VfsNode_t *node)
 struct dirent *ext2_readdir(VfsNode_t *node, uint32_t index)
 {
     Inode_t *inode = readInode(node->inode);
-    if (!inode || !INODE_DIR(inode))
+    if (!inode)
         return NULL;
+    if (!INODE_DIR(inode))
+    {
+        kfree(inode);
+        return NULL;
+    }
     
     uint8_t *tmpBuf = (uint8_t *)kmalloc(g_blockSize);
     if (!tmpBuf)
@@ -739,8 +791,13 @@ end:
 VfsNode_t *ext2_finddir(VfsNode_t *node, const char *name)
 {
     Inode_t *inode = readInode(node->inode);
-    if (!inode || !INODE_DIR(inode))
+    if (!inode)
         return NULL;
+    if (!INODE_DIR(inode))
+    {
+        kfree(inode);
+        return NULL;
+    }
     
     uint8_t *tmpBuf = (uint8_t *)kmalloc(g_blockSize);
     if (!tmpBuf)
@@ -793,7 +850,10 @@ int ext2_create(VfsNode_t *node, const char *name, uint32_t attr)
     if (!parentInode)
         return ENOENT;
     if (!INODE_DIR(parentInode))
+    {
+        kfree(parentInode);
         return ENOTDIR;
+    }
     
     // Create the new file
     uint32_t newIno;
@@ -830,4 +890,21 @@ int ext2_mkdir(VfsNode_t *node, const char *name, uint32_t attr)
     
     kfree(newInode);
     return ENOER;
+}
+
+long ext2_ftell(VfsNode_t *node)
+{
+    Inode_t *inode = readInode(node->inode);
+    if (!inode)
+        return -EEXIST;
+    if (!INODE_FILE(inode))
+    {
+        kfree(inode);
+        return -EISDIR;
+    }
+    
+    long size = inode->i_size;
+    kfree(inode);
+    
+    return size;
 }

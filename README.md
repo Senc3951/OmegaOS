@@ -9,7 +9,7 @@ x86_64 UEFI-based operating system built from scratch.
 - [x] Heap
 - [x] ATA
 - [x] Virtual filesystem
-- [ ] Filesystem (ext2)
+- [x] Filesystem (ext2)
 - [ ] Process management
 - [ ] User space
 
@@ -30,7 +30,20 @@ sudo make setup     # Building the initrd requires sudo privileges
 ```
 
 ### Running
-To run, simply enter `make`.
+To run, simply run `make`.
+
+### Debugging
+First, make sure that debugging is enabled in config.mk, then run make debug.
+
+On a seperate terminal, run the following commands
+```bash
+gdb
+target remote localhost:1234
+symbol-file output/kernel.elf
+layout src
+b _entry
+c
+```
 
 ## Contribute
 This project is open source, feel free to study and contribute.
