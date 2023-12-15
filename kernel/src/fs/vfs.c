@@ -7,6 +7,7 @@ VfsNode_t *_RootFS = NULL;
 
 static char *fixPath(char *cwd, const char *path)
 {
+    char *output = NULL;
     list_t *lst = list_create();
     if (*path && *path != FS_PATH_SEPERATOR)
     {
@@ -14,7 +15,7 @@ static char *fixPath(char *cwd, const char *path)
         size_t len = strlen(cwd);
         char *cwdCopy = (char *)kmalloc(len + 1);
         if (!cwdCopy)
-            return NULL;
+            goto cleanup;
         
         memcpy(cwdCopy, cwd, len + 1);
         char *token = strtok(cwdCopy, FS_PATH_SEPERATOR_STR);
@@ -30,7 +31,7 @@ static char *fixPath(char *cwd, const char *path)
     size_t rlpLen = strlen(path);
     char *rlpCopy = (char *)kmalloc(rlpLen + 1);
     if (!rlpCopy)
-        return NULL;
+        goto cleanup;
     
     memcpy(rlpCopy, path, rlpLen + 1);
     char *token = strtok(rlpCopy, FS_PATH_SEPERATOR_STR);
@@ -60,9 +61,9 @@ static char *fixPath(char *cwd, const char *path)
         fSize += strlen(item->value) + 1;
     }
     
-    char *output = (char *)kmalloc(fSize + 1);
+    output = (char *)kmalloc(fSize + 1);
     if (!output)
-        return NULL;
+        goto cleanup;
     
     if (fSize == 0)
     {
@@ -82,6 +83,7 @@ static char *fixPath(char *cwd, const char *path)
         }
     }
     
+cleanup:
     list_destroy(lst);
     list_free(lst);
     kfree(lst);
@@ -213,7 +215,10 @@ int vfs_create(const char *name, uint32_t attr)
     size_t plen = strlen(path);
     char *parentPath = (char *)kmalloc(plen + 4);
     if (!parentPath)
+    {
+        kfree(path);
         return ENOMEM;
+    }
     
     strcpy(parentPath, path);
     strcpy(parentPath + plen, "/..");

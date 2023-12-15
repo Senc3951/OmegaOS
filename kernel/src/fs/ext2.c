@@ -292,8 +292,8 @@ found_bit:
     if (!setRealBlock(inode, block, newBlock))
         return false;
     
-    // Update block count
-    inode->i_sectors += SECTORS_PER_BLOCK;
+    inode->i_sectors += SECTORS_PER_BLOCK;  // Update sector count
+    inode->i_size += g_blockSize;   // Update size
     writeInode(ino, inode);
     
     return true;
@@ -356,8 +356,8 @@ static bool insertInodeInDir(Inode_t *parentInode, uint32_t pino, const uint32_t
     }
     
     // Allocate a new block
-    LOG("allocating new block for dir %u\n", pino);
-    if (!allocateBlock(parentInode, pino, ++lastBlock))
+    lastBlock++;
+    if (!allocateBlock(parentInode, pino, lastBlock))
     {
         kfree(tmpBuf);
         return false;
@@ -367,9 +367,10 @@ static bool insertInodeInDir(Inode_t *parentInode, uint32_t pino, const uint32_t
         kfree(tmpBuf);
         return false;
     }
-
+    
     dir = (Directory_t *)tmpBuf;
     oldSize = g_blockSize;
+    currentEntrySize = 0;
     
 write:
     dir->inode = newIno;
@@ -593,7 +594,7 @@ ssize_t ext2_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
                 readBytes = -EIO;
                 goto end;
             }
-
+            
             uint32_t remainingBytes = (offset + size) % g_blockSize;
             memcpy(pBuf + readBytes, tmpBuf, remainingBytes);
             readBytes += remainingBytes;
@@ -618,8 +619,9 @@ end:
 }
 
 ssize_t ext2_write(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
-{  
+{
     Inode_t *inode = readInode(node->inode);
+    uint32_t osize = inode->i_size;
     if (!inode)
         return -EEXIST;
     if (!INODE_FILE(inode))
@@ -707,8 +709,9 @@ end:
     if (!writtenBytes)
         goto cleanup;
     
-    inode->i_size += writtenBytes;
+    inode->i_size = osize + writtenBytes;
     inode->i_sectors = RNDUP(inode->i_size, ATA_SECTOR_SIZE) / ATA_SECTOR_SIZE;
+    
     if (!writeInode(node->inode, inode))
     {
         writtenBytes = -EIO;
@@ -773,12 +776,12 @@ struct dirent *ext2_readdir(VfsNode_t *node, uint32_t index)
                 goto end;
             }
             
+            i++;
             currentSize += dir->rec_len;
             if (currentSize >= g_blockSize)
                 break;
 
             dir = (Directory_t *)(((uint8_t *)dir) + dir->rec_len);
-            i++;
         }
     }
 
