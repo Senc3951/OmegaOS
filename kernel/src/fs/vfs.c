@@ -189,20 +189,20 @@ struct dirent *vfs_readdir(VfsNode_t *node, uint32_t index)
 {
     if (!node || !node->readdir)
         return NULL;
-    if ((node->flags & FS_DIR) == FS_DIR)
-        return node->readdir(node, index);
+    if ((node->flags & FS_DIR) != FS_DIR)
+        return NULL;
     
-    return NULL;
+    return node->readdir(node, index);
 }
 
 VfsNode_t *vfs_finddir(VfsNode_t *node, const char *name)
 {
     if (!node || !node->finddir)
         return NULL;
-    if ((node->flags & FS_DIR) == FS_DIR)
-        return node->finddir(node, name);
+    if ((node->flags & FS_DIR) != FS_DIR)
+        return NULL;
     
-    return NULL;
+    return node->finddir(node, name);
 }
 
 int vfs_create(const char *name, uint32_t attr)
@@ -306,10 +306,35 @@ int vfs_mkdir(const char *name, uint32_t attr)
 
 long vfs_ftell(VfsNode_t *node)
 {
-    if (!node || !node->ftell)
+    if (!node)
         return -EPERM;
     if ((node->flags & FS_FILE) != FS_FILE)
         return -EISDIR;
     
-    return node->ftell(node);
+    return node->offset;
+}
+
+int vfs_fseek(VfsNode_t *node, long offset, int whence)
+{
+    if (!node)
+        return EPERM;
+    if ((node->flags & FS_FILE) != FS_FILE)
+        return EISDIR;
+    
+    switch (whence)
+    {
+        case SEEK_SET:
+            node->offset = offset;
+            break;
+        case SEEK_CUR:
+            node->offset += offset;
+            break;
+        case SEEK_END:
+            node->offset = node->size;
+            break;
+        default:
+            return EINVAL;
+    }
+    
+    return ENOER;
 }

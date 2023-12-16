@@ -16,6 +16,10 @@
 #define FS_SOCK     0x20
 #define FS_SYMLINK  0x40
 
+#define SEEK_SET    0
+#define SEEK_CUR    1
+#define SEEK_END    2
+
 #define S_IXOTH   0x1
 #define S_IWOTH   0x2
 #define S_IROTH   0x4
@@ -39,7 +43,6 @@ typedef struct dirent *(*readdir_type_t)(VfsNode_t *, uint32_t);
 typedef VfsNode_t *(*finddir_type_t)(VfsNode_t *, const char *);
 typedef int (*create_type_t)(VfsNode_t *, const char *, uint32_t);
 typedef int (*mkdir_type_t)(VfsNode_t *, const char *, uint32_t);
-typedef long (*ftell_type_t)(VfsNode_t *);
 
 struct VFS_NODE
 {
@@ -49,9 +52,9 @@ struct VFS_NODE
     uint32_t gid;
     uint32_t flags; /* Type of file. */
     uint32_t inode;
-    uint32_t length;
-    uint32_t openFlags;
-
+    uint32_t size;
+    long offset;
+    
     uint32_t atime;
     uint32_t mtime;
     uint32_t ctime;
@@ -64,7 +67,6 @@ struct VFS_NODE
     finddir_type_t finddir;
     create_type_t create;
     mkdir_type_t mkdir;
-    ftell_type_t ftell;
 };
 
 typedef struct dirent
@@ -133,3 +135,9 @@ int vfs_mkdir(const char *name, uint32_t attr);
 /// @param node File to get the size of.
 /// @return Size of the file.
 long vfs_ftell(VfsNode_t *node);
+
+/// @brief Set the offset of a file.
+/// @param node File to set the offset of.
+/// @param offset Relative offset to set.
+/// @param whence From where to count the relative offset.
+int vfs_fseek(VfsNode_t *node, long offset, int whence);

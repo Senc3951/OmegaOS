@@ -446,7 +446,7 @@ static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
     Inode_t *inode = readInode(ino);
     if (!inode)
         return NULL;
-
+    
     VfsNode_t *node = (VfsNode_t *)kmalloc(sizeof(VfsNode_t));
     if (!node)
     {
@@ -458,11 +458,12 @@ static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
     strcpy(node->name, name);
     node->uid = inode->i_uid;
     node->gid = inode->i_gid;
-    node->length = inode->i_size;
+    node->size = inode->i_size;
     node->attr = inode->i_mode & 0xFFF;
     node->atime = inode->i_atime;
     node->mtime = inode->i_mtime;
     node->ctime = inode->i_ctime;
+    node->offset = 0;
     
     // Set flags
     uint32_t mask = GET_FLAGS(inode->i_mode);
@@ -473,7 +474,6 @@ static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
         node->finddir = NULL;
         node->create = NULL;
         node->mkdir = NULL;
-        node->ftell = ext2_ftell;
     }
     if ((mask & I_DIR) == I_DIR)
     {
@@ -482,7 +482,6 @@ static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
         node->finddir = ext2_finddir;
         node->create = ext2_create;
         node->mkdir = ext2_mkdir;
-        node->ftell = NULL;
     }
     if ((mask & I_BLKDEV) == I_BLKDEV)
         node->flags |= FS_BLKDEV;
@@ -611,6 +610,8 @@ ssize_t ext2_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
             readBytes += g_blockSize;
         }
     }
+    
+    node->offset = offset + readBytes;  // Update offset
 
 end:
     kfree(inode);
@@ -683,7 +684,7 @@ ssize_t ext2_write(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
             }
             
             uint32_t remainingBytes = (offset + size) % g_blockSize;
-            memcpy(tmpBuf + remainingBytes, pBuf + writtenBytes, remainingBytes);
+            memcpy(tmpBuf, pBuf + writtenBytes, remainingBytes);
             if (!writeInodeBlock(inode, node->inode, block, tmpBuf))
             {
                 writtenBytes = -EIO;
@@ -709,14 +710,22 @@ end:
     if (!writtenBytes)
         goto cleanup;
     
-    inode->i_size = osize + writtenBytes;
-    inode->i_sectors = RNDUP(inode->i_size, ATA_SECTOR_SIZE) / ATA_SECTOR_SIZE;
+    // Update inode
+    if (offset + writtenBytes > osize)
+    {
+        inode->i_size = offset + writtenBytes;
+        inode->i_sectors = RNDUP(inode->i_size, ATA_SECTOR_SIZE) / ATA_SECTOR_SIZE;
+    }
     
     if (!writeInode(node->inode, inode))
     {
         writtenBytes = -EIO;
         goto cleanup;
     }
+    
+    // Update VfsNode
+    node->size = inode->i_size;
+    node->offset = offset + writtenBytes;
     
 cleanup:
     kfree(inode);
@@ -893,21 +902,4 @@ int ext2_mkdir(VfsNode_t *node, const char *name, uint32_t attr)
     
     kfree(newInode);
     return ENOER;
-}
-
-long ext2_ftell(VfsNode_t *node)
-{
-    Inode_t *inode = readInode(node->inode);
-    if (!inode)
-        return -EEXIST;
-    if (!INODE_FILE(inode))
-    {
-        kfree(inode);
-        return -EISDIR;
-    }
-    
-    long size = inode->i_size;
-    kfree(inode);
-    
-    return size;
 }
