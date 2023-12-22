@@ -5,7 +5,7 @@
 
 VfsNode_t *_RootFS = NULL;
 
-static char *fixPath(char *cwd, const char *path)
+static char *normalizePath(char *cwd, const char *path)
 {
     char *output = NULL;
     list_t *lst = list_create();
@@ -93,7 +93,7 @@ cleanup:
 VfsNode_t *vfs_openFile(const char *name, uint32_t attr)
 {
     char *cwd = "/";
-    char *path = fixPath(cwd, name);
+    char *path = normalizePath(cwd, name);
     if (!path)
         return NULL;
 
@@ -205,20 +205,26 @@ VfsNode_t *vfs_finddir(VfsNode_t *node, const char *name)
     return node->finddir(node, name);
 }
 
-int vfs_create(const char *name, uint32_t attr)
+static int getParent(const char *name, uint32_t attr, VfsNode_t **parent, const char **fileName)
 {
     char *cwd = "/";    // For now
-    char *path = fixPath(cwd, name);    
+    char *path = normalizePath(cwd, name);    
     if (!path)
         return EPERM;
+
+    for (long i = strlen(path) - 1; i >= 0; i--)
+    {
+        if (path[i] == FS_PATH_SEPERATOR)
+        {
+            *fileName = name + i;
+            break;
+        }
+    }
     
     size_t plen = strlen(path);
     char *parentPath = (char *)kmalloc(plen + 4);
     if (!parentPath)
-    {
-        kfree(path);
         return ENOMEM;
-    }
     
     strcpy(parentPath, path);
     strcpy(parentPath + plen, "/..");
@@ -237,70 +243,50 @@ int vfs_create(const char *name, uint32_t attr)
     while (*tmp == FS_PATH_SEPERATOR)
         tmp++;
     
-    VfsNode_t *parent = vfs_openFile(parentPath, attr);
+    *parent = vfs_openFile(parentPath, attr);
     kfree(parentPath);
+    kfree(path);
+        
+    return *parent ? ENOER : EPERM;
+}
 
-    if (!parent)
-    {
-        kfree(path);
-        return EPERM;
-    }
+int vfs_create(const char *name, uint32_t attr)
+{
+    VfsNode_t *parent = NULL;
+    const char *fileName = NULL;
+    int ret = getParent(name, attr, &parent, &fileName);
     
-    int ret = EPERM;
+    if (ret != ENOER)
+        return ret;
+    if (!parent || !fileName)
+        return EPERM;
+    
     if (parent->create)
-        ret = parent->create(parent, tmp, attr);
+        ret = parent->create(parent, fileName, attr);
+    else
+        ret = EPERM;
     
     kfree(parent);
-    kfree(path);
-    
     return ret;
 }
 
 int vfs_mkdir(const char *name, uint32_t attr)
 {
-    char *cwd = "/";    // For now
-    char *path = fixPath(cwd, name);    
-    if (!path)
+    VfsNode_t *parent = NULL;
+    const char *fileName = NULL;
+    int ret = getParent(name, attr, &parent, &fileName);
+
+    if (ret != ENOER)
+        return ret;
+    if (!parent || !fileName)
         return EPERM;
     
-    size_t plen = strlen(path);
-    char *parentPath = (char *)kmalloc(plen + 4);
-    if (!parentPath)
-        return ENOMEM;
-    
-    strcpy(parentPath, path);
-    strcpy(parentPath + plen, "/..");
-
-    char *tmp = path + plen - 1;
-    while (tmp > path)
-    {
-        if (*tmp == FS_PATH_SEPERATOR)
-        {
-            tmp++;
-            break;
-        }
-
-        tmp--;
-    }
-    while (*tmp == FS_PATH_SEPERATOR)
-        tmp++;
-    
-    VfsNode_t *parent = vfs_openFile(parentPath, attr);
-    kfree(parentPath);
-
-    if (!parent)
-    {
-        kfree(path);
-        return EPERM;
-    }
-    
-    int ret = EPERM;
     if (parent->mkdir)
-        ret = parent->mkdir(parent, tmp, attr);
+        ret = parent->mkdir(parent, fileName, attr);
+    else
+        ret = EPERM;
     
     kfree(parent);
-    kfree(path);
-    
     return ret;
 }
 
@@ -337,4 +323,24 @@ int vfs_fseek(VfsNode_t *node, long offset, int whence)
     }
     
     return ENOER;
+}
+
+int vfs_delete(const char *name)
+{
+    VfsNode_t *parent = NULL;
+    const char *fileName = NULL;
+    int ret = getParent(name, 0, &parent, &fileName);
+
+    if (ret != ENOER)
+        return ret;
+    if (!parent || !fileName)
+        return EPERM;
+    
+    if (parent->delete)
+        ret = parent->delete(parent, fileName);
+    else
+        ret = EPERM;
+    
+    kfree(parent);
+    return ret;
 }

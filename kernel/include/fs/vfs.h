@@ -43,6 +43,7 @@ typedef struct dirent *(*readdir_type_t)(VfsNode_t *, uint32_t);
 typedef VfsNode_t *(*finddir_type_t)(VfsNode_t *, const char *);
 typedef int (*create_type_t)(VfsNode_t *, const char *, uint32_t);
 typedef int (*mkdir_type_t)(VfsNode_t *, const char *, uint32_t);
+typedef int (*delete_type_t)(VfsNode_t *, const char *);
 
 struct VFS_NODE
 {
@@ -67,6 +68,7 @@ struct VFS_NODE
     finddir_type_t finddir;
     create_type_t create;
     mkdir_type_t mkdir;
+    delete_type_t delete;
 };
 
 typedef struct dirent
@@ -141,3 +143,7 @@ long vfs_ftell(VfsNode_t *node);
 /// @param offset Relative offset to set.
 /// @param whence From where to count the relative offset.
 int vfs_fseek(VfsNode_t *node, long offset, int whence);
+
+/// @brief Delete a file.
+/// @param name Name of the file to delete.
+int vfs_delete(const char *name);

@@ -26,8 +26,8 @@ extern uint64_t _KernelStart, _KernelEnd;
 #define KRN_HEAP_START      (_KernelEnd + 4 * _MB)
 #define KRN_HEAP_SIZE       (4 * _MB)
 
-#define RNDUP(num, nm)  (num < nm ? nm : (((num) / nm) * nm))
-#define RNDWN(num, nm)  (((num + nm - 1) / nm) * nm)
+#define RNDUP(num, nm)  ((num) < nm ? nm : (((num) / nm) * nm))
+#define RNDWN(num, nm)  ((((num) + nm - 1) / nm) * nm)
 #define MAX(n1, n2)     (n1 < n2 ? n2 : n1)
 #define UNUSED(x)       (void)(x)
 

@@ -1,6 +1,7 @@
 #include <gui/screen.h>
 #include <gui/printf.h>
 #include <libc/string.h>
+#include <logger.h>
 
 static Framebuffer_t* g_fb;
 static PSF1Font_t* g_font;
@@ -42,6 +43,7 @@ void screen_init(Framebuffer_t *fb, PSF1Font_t *font)
     g_color = White;
     
     screen_clear(Black);
+    LOG("Framebuffer: %p (%ux%ux%u)\n", fb->baseAddress, fb->height, fb->width, fb->bytesPerPixel * 8);
 }
 
 void screen_putc(const char c)

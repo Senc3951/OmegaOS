@@ -39,7 +39,7 @@ initrd:
 	sudo umount tmp
 	rm -rf tmp
 
-setup: initrd
+setup:
 	mkdir -p $(OBJ_DIR)
 	mkdir -p $(OUTPUT_DIR)
 	

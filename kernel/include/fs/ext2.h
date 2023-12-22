@@ -250,3 +250,8 @@ int ext2_create(VfsNode_t *node, const char *name, uint32_t attr);
 /// @param attr Attributes of the directory.
 /// @return Status of the operation.
 int ext2_mkdir(VfsNode_t *node, const char *name, uint32_t attr);
+
+/// @brief Delete a directory.
+/// @param node Node of the parent directory.
+/// @param name Name of the file to delete.
+int ext2_delete(VfsNode_t *node, const char *name);

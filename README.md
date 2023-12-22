@@ -21,19 +21,13 @@ x86_64 UEFI-based operating system built from scratch.
 Install `gcc`, `nasm`, `ld`, `makefile`, `mtools` and `qemu`.
 
 ### Setup
-Once installed, enter the directory and run the following commands:
-```bash
-cd gnu-efi
-make && make bootloader
-cd ..
-sudo make setup     # Building the initrd requires sudo privileges
-```
+Once installed, enter the directory and run ```./build.sh```.
 
 ### Running
-To run, simply run `make`.
+run `make`.
 
 ### Debugging
-First, make sure that debugging is enabled in config.mk, then run make debug.
+First, make sure that debugging is enabled in config.mk, if it wasn't, enable it and clear the project by running ```make clean``` and then run ```make debug```.
 
 On a seperate terminal, run the following commands
 ```bash

@@ -16,7 +16,7 @@
 static SuperBlock_t g_superBlock;
 static BlockGroupDescriptor_t *g_blockGroupDescriptors;
 static uint8_t *g_tmpBuf;
-static uint32_t g_blockSize, g_blockGroupDescriptorCount;
+static uint32_t g_blockSize, g_blockGroupDescriptorCount, g_inodesPerGroup;
 
 #define SECTORS_PER_BLOCK       (g_blockSize / ATA_SECTOR_SIZE)
 #define INODES_PER_BLOCK        (g_blockSize / g_superBlock.s_inode_size)
@@ -26,6 +26,10 @@ static uint32_t g_blockSize, g_blockGroupDescriptorCount;
 #define TRIPLE_IND_PTR_BLOCKS   (DOUBLE_IND_PTR_BLOCKS * PTR_BLOCKS_PER_BLOCK)
 #define SECTOR2BLOCK(sector)    ((sector + 1) * ATA_SECTOR_SIZE / g_blockSize)
 
+#define b2s(block)                  ((block) * SECTORS_PER_BLOCK)
+#define readBlock(block, buffer)    (ide_read(b2s(block), buffer, SECTORS_PER_BLOCK))
+#define writeBlock(block, buffer)   (ide_write(b2s(block), buffer, SECTORS_PER_BLOCK))
+
 #define FIND_AND_MARK_BIT(bitmap, foundLabel) ({    \
     bit = 0;                                        \
     for (uint32_t k = 0; k < g_blockSize; k++) {    \
@@ -33,15 +37,18 @@ static uint32_t g_blockSize, g_blockGroupDescriptorCount;
             for (uint32_t j = 0; j < 8; j++) {      \
                 if (!(bitmap[k] & (1 << j))) {      \
                     bitmap[k] |= (1 << j);          \
+                    bit = 8 * k + j;                \
                     goto foundLabel;                \
                 }                                   \
-                                                    \
-                bit++;                              \
             }                                       \
         }                                           \
-        else                                        \
-            bit += 8;   /* Entries per byte */      \
     }                                               \
+})
+
+#define CLEAR_BIT(bitmap, bit) ({   \
+    uint32_t x = (bit) / 8;         \
+    uint32_t y = (bit) % 8;         \
+    bitmap[x] &= ~(1 << y);         \
 })
 
 #define GET_DIR_ENTRY_SIZE(nl) ({               \
@@ -75,21 +82,6 @@ static uint8_t getFileType(const uint32_t attr)
         return ID_SOCK;
     
     return ID_UNKNOWN;
-}
-
-static uint32_t b2s(const uint32_t block)
-{
-    return block * SECTORS_PER_BLOCK;
-}
-
-static bool readBlock(const uint32_t block, void *buffer)
-{
-    return ide_read(b2s(block), buffer, SECTORS_PER_BLOCK);
-}
-
-static bool writeBlock(const uint32_t block, void *buffer)
-{
-    return ide_write(b2s(block), buffer, SECTORS_PER_BLOCK);
 }
 
 static Inode_t *readInode(const uint32_t ino)
@@ -140,7 +132,7 @@ static uint32_t getRealBlock(Inode_t *inode, const uint32_t block)
     {
         // Read single indirect block
         if (!readBlock(inode->i_block[EXT2_IND_BLOCK], g_tmpBuf))
-            return false;
+            return 0;
         
         return ((uint32_t *)g_tmpBuf)[block - EXT2_IND_BLOCK];
     }
@@ -148,7 +140,7 @@ static uint32_t getRealBlock(Inode_t *inode, const uint32_t block)
     {
         // Read double indirect block
         if (!readBlock(inode->i_block[EXT2_DIND_BLOCK], g_tmpBuf))
-            return false;
+            return 0;
 
         uint32_t b = (block - EXT2_DIND_BLOCK) / PTR_BLOCKS_PER_BLOCK;
         uint32_t c = b / PTR_BLOCKS_PER_BLOCK;
@@ -157,7 +149,7 @@ static uint32_t getRealBlock(Inode_t *inode, const uint32_t block)
         // Read single indirect block
         uint32_t singleIndirectBlock = ((uint32_t *)g_tmpBuf)[c];
         if (!readBlock(singleIndirectBlock, g_tmpBuf))
-            return false;
+            return 0;
         
         return ((uint32_t *)g_tmpBuf)[d];
     }
@@ -165,7 +157,7 @@ static uint32_t getRealBlock(Inode_t *inode, const uint32_t block)
     {
         // Read triple indirect block
         if (!readBlock(inode->i_block[EXT2_TIND_BLOCK], g_tmpBuf))
-            return false;
+            return 0;
         
         uint32_t b = block - EXT2_TIND_BLOCK - PTR_BLOCKS_PER_BLOCK;
         uint32_t c = b - PTR_BLOCKS_PER_BLOCK * PTR_BLOCKS_PER_BLOCK;
@@ -177,12 +169,12 @@ static uint32_t getRealBlock(Inode_t *inode, const uint32_t block)
         // Read double indirect block
         uint32_t doubleIndirectBlock = ((uint32_t *)g_tmpBuf)[d];
         if (!readBlock(doubleIndirectBlock, g_tmpBuf))
-            return false;
+            return 0;
 
         // Read single indirect block
         uint32_t singleIndirectBlock = ((uint32_t *)g_tmpBuf)[f];
         if (!readBlock(singleIndirectBlock, g_tmpBuf))
-            return false;
+            return 0;
         
         return ((uint32_t *)g_tmpBuf)[g];
     }
@@ -276,7 +268,13 @@ static bool allocateBlock(Inode_t *inode, const uint32_t ino, uint32_t block)
         }
           
 found_bit:
-        newBlock = bit + g_superBlock.s_blocks_per_group * i + 1;
+        if (!bit)
+        {
+            kfree(blockBitmap);
+            return NULL;
+        }
+        
+        newBlock = bit + g_superBlock.s_blocks_per_group * i + 1;        
         g_blockGroupDescriptors[i].bg_free_blocks_count--;
         writeBlock(g_blockGroupDescriptors[i].bg_block_bitmap, blockBitmap);
         writeBlock(BLOCK_GROUP_START, g_blockGroupDescriptors);
@@ -332,7 +330,8 @@ static bool insertInodeInDir(Inode_t *parentInode, uint32_t pino, const uint32_t
     Directory_t *dir = (Directory_t *)tmpBuf;
     uint32_t oldSize, currentEntrySize, currentSize = 0, newEntrySize = GET_DIR_ENTRY_SIZE(strlen(name));
     
-    while (true)
+    // If no blocks exist, the subtrcation will overflow, so allocate a new block
+    while (lastBlock != UINT32_MAX)
     {
         currentSize += dir->rec_len;
         if (currentSize >= g_blockSize)
@@ -384,12 +383,180 @@ write:
     return ret;
 }
 
+static int deleteBlockBuffer(uint8_t *bitmap, uint32_t block)
+{
+    if (!block)
+        return EIO;
+    
+    uint32_t blockIndex = block / g_superBlock.s_blocks_per_group;
+    uint32_t blockOffset = block % g_superBlock.s_blocks_per_group;
+    if (blockIndex >= g_blockGroupDescriptorCount)
+        return EPERM;
+
+    // Read the block bitmap
+    if (!readBlock(g_blockGroupDescriptors[blockIndex].bg_block_bitmap, bitmap))
+        return EIO;
+    
+    CLEAR_BIT(bitmap, blockOffset - 1);
+    g_blockGroupDescriptors[blockIndex].bg_free_blocks_count++;
+    writeBlock(g_blockGroupDescriptors[blockIndex].bg_block_bitmap, bitmap);
+    writeBlock(BLOCK_GROUP_START, g_blockGroupDescriptors);
+
+    return ENOER;
+}
+
+static int deleteBlock(uint32_t block)
+{
+    uint8_t *blockBitmap = (uint8_t *)kmalloc(g_blockSize);
+    if (!blockBitmap)
+        return ENOMEM;
+    
+    int ret = deleteBlockBuffer(blockBitmap, block);
+    kfree(blockBitmap);
+
+    return ret;
+}
+
+static int deleteInodeFromDir(Inode_t *parentInode, uint32_t pino, const char *name, uint32_t *ino)
+{
+    int ret = ENOENT;
+    uint8_t *tmpBuf = (uint8_t *)kmalloc(g_blockSize);
+    if (!tmpBuf)
+        return ENOMEM;
+
+    // Iterate all blocks
+    Directory_t *dir = NULL, *prev = NULL;
+    uint32_t block = 0, currentSize = 0;
+    for (; block < parentInode->i_size / g_blockSize; block++)
+    {
+        if (!readInodeBlock(parentInode, block, tmpBuf))
+            goto end;
+        
+        dir = (Directory_t *)tmpBuf, prev = NULL;
+        currentSize = 0;
+        while (true)
+        {
+            if (!strcmp(dir->name, name))     // Found the entry
+            {
+                // Delete the entry
+                *ino = dir->inode;
+                if (currentSize == 0 && dir->rec_len >= g_blockSize)  // First and only entry
+                {
+                    // Free the current block
+                    ret = deleteBlock(getRealBlock(parentInode, block));
+                    if (ret != ENOER)
+                        goto end;
+                    
+                    // Update inode
+                    parentInode->i_sectors -= SECTORS_PER_BLOCK;
+                    parentInode->i_size -= g_blockSize;
+                    
+                    ret = writeInode(pino, parentInode) ? ENOER : EIO;
+                    goto end;
+                }
+                else if (currentSize + dir->rec_len >= g_blockSize)  // Last entry
+                {
+                    prev->rec_len += dir->rec_len;
+                    ret = writeInodeBlock(parentInode, pino, block, tmpBuf) ? ENOER : EIO;
+
+                    goto end;
+                }
+                
+                // File is either in the middle or in the beginning with more files in the current block
+                goto delete_middle_entry;                
+            }
+            
+            currentSize += dir->rec_len;
+            if (currentSize >= g_blockSize)
+                goto end;
+            
+            prev = dir;
+            dir = (Directory_t *)(((uint8_t *)dir) + dir->rec_len);
+        }
+    }
+
+delete_middle_entry:
+    uint32_t feLen = dir->rec_len;
+    memmove(tmpBuf + currentSize, tmpBuf + currentSize + feLen, g_blockSize - feLen - currentSize);   // Copy to the left
+    
+    // Find the last entry
+    Directory_t *tmpDir = (Directory_t *)tmpBuf;
+    uint32_t csTmp = currentSize + feLen;
+    while (true)
+    {
+        csTmp += tmpDir->rec_len;
+        if (csTmp >= g_blockSize)
+            break;
+
+        tmpDir = (Directory_t *)(((uint8_t *)tmpDir) + tmpDir->rec_len);
+    }
+    
+    tmpDir->rec_len += feLen;   // Update the size
+    ret = writeInodeBlock(parentInode, pino, block, tmpBuf) ? ENOER : EIO;
+
+end:
+    kfree(tmpBuf);
+    return ret;
+}
+
+static int deleteInode(Inode_t *inode, uint32_t ino)
+{
+    uint8_t *generalBitmap = (uint8_t *)kmalloc(g_blockSize);
+    if (!generalBitmap)
+        return ENOMEM;
+    
+    // Delete Inode
+    uint32_t inodeIndex = ino / g_inodesPerGroup;
+    uint32_t inodeOffset = ino % g_inodesPerGroup;
+    if (inodeIndex >= g_blockGroupDescriptorCount)
+    {
+        kfree(generalBitmap);
+        return EPERM;
+    }
+    
+    // Read the inode bitmap
+    if (!readBlock(g_blockGroupDescriptors[inodeIndex].bg_inode_bitmap, generalBitmap))
+    {
+        kfree(generalBitmap);
+        return EIO;
+    }
+    
+    CLEAR_BIT(generalBitmap, inodeOffset - 1);
+    g_blockGroupDescriptors[inodeIndex].bg_free_inodes_count++;
+    writeBlock(g_blockGroupDescriptors[inodeIndex].bg_inode_bitmap, generalBitmap);
+    writeBlock(BLOCK_GROUP_START, g_blockGroupDescriptors);
+    
+    if (inode->i_size == 0)
+    {
+        kfree(generalBitmap);
+        return ENOER;
+    }
+    
+    // Delete data blocks
+    uint32_t endBlock = inode->i_size / g_blockSize;
+    if (inode->i_size % g_blockSize != 0)
+        endBlock++;
+    
+    for (uint32_t block = 0; block < endBlock; block++)
+    {
+        int ret = deleteBlockBuffer(generalBitmap, getRealBlock(inode, block));
+        if (ret != ENOER)
+        {
+            kfree(generalBitmap);
+            return ret;
+        }
+    }
+
+    kfree(generalBitmap);
+    return ENOER;
+}
+
 static Inode_t *createInode(Inode_t *parentInode, const uint32_t pino, const char *name, uint32_t attr, uint32_t *newIno)
 {
     uint8_t *inodeBitmap = (uint8_t *)kmalloc(g_blockSize);
     if (!inodeBitmap)
         return NULL;
-
+    
     uint32_t bit = 0, newInoNum = 0;
     for (uint32_t i = 0; i < g_blockGroupDescriptorCount; i++)
     {
@@ -406,7 +573,13 @@ static Inode_t *createInode(Inode_t *parentInode, const uint32_t pino, const cha
         }
         
 found_bit:
-        newInoNum = bit + INODES_PER_BLOCK * i + 1;
+        if (!bit)
+        {
+            kfree(inodeBitmap);
+            return NULL;
+        }
+        
+        newInoNum = bit + g_inodesPerGroup * i + 1;
         g_blockGroupDescriptors[i].bg_free_inodes_count--;
         writeBlock(g_blockGroupDescriptors[i].bg_inode_bitmap, inodeBitmap);
         writeBlock(BLOCK_GROUP_START, g_blockGroupDescriptors);
@@ -424,7 +597,6 @@ found_bit:
     
     // Write the new inode
     INIT_INODE(inode);
-    
     if (!writeInode(newInoNum, inode))
     {
         kfree(inode);
@@ -474,6 +646,7 @@ static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
         node->finddir = NULL;
         node->create = NULL;
         node->mkdir = NULL;
+        node->delete = NULL;
     }
     if ((mask & I_DIR) == I_DIR)
     {
@@ -482,6 +655,7 @@ static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
         node->finddir = ext2_finddir;
         node->create = ext2_create;
         node->mkdir = ext2_mkdir;
+        node->delete = ext2_delete;
     }
     if ((mask & I_BLKDEV) == I_BLKDEV)
         node->flags |= FS_BLKDEV;
@@ -509,6 +683,7 @@ void ext2_init()
     
     g_blockSize = 1024 << g_superBlock.s_log_block_size;
     g_blockGroupDescriptorCount = MAX(g_superBlock.s_blocks_count / g_superBlock.s_blocks_per_group, g_superBlock.s_inodes_count / g_superBlock.s_inodes_per_group);
+    g_inodesPerGroup = g_superBlock.s_inodes_count / g_blockGroupDescriptorCount;
     LOG("Ext2 block size: %u\n", g_blockSize);
     
     // Read group descriptors
@@ -902,4 +1077,41 @@ int ext2_mkdir(VfsNode_t *node, const char *name, uint32_t attr)
     
     kfree(newInode);
     return ENOER;
+}
+
+int ext2_delete(VfsNode_t *node, const char *name)
+{
+    Inode_t *parentInode = readInode(node->inode);
+    if (!parentInode)
+        return ENOENT;
+    if (!INODE_DIR(parentInode))
+    {
+        kfree(parentInode);
+        return ENOTDIR;
+    }
+    
+    // Delete the inode from the directory
+    uint32_t cino = 0;
+    int ret = deleteInodeFromDir(parentInode, node->inode, name, &cino);
+    if (ret != ENOER)
+    {
+        kfree(parentInode);
+        return ret;
+    }
+    kfree(parentInode);
+    
+    Inode_t *cInode = readInode(cino);
+    if (!cInode)
+        return ENOENT;
+    if (INODE_DIR(cInode))
+    {
+        kfree(cInode);
+        return EISDIR;
+    }
+    
+    // Delete the inode
+    ret = deleteInode(cInode, cino);
+    kfree(cInode);
+    
+    return ret;
 }

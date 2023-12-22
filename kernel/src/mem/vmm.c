@@ -73,12 +73,14 @@ void vmm_init(const Framebuffer_t *fb)
     LOG("Kernel PML4: %p\n", g_pml4);
 
     // Identity map entire memory
-    for (uint64_t addr = 0; addr < RNDUP(pmm_getMemorySize(), PAGE_SIZE); addr += PAGE_SIZE)
+    uint64_t memEnd = RNDUP(pmm_getMemorySize(), PAGE_SIZE);
+    for (uint64_t addr = 0; addr < memEnd; addr += PAGE_SIZE)
         vmm_identityMapPage((void *)addr, VMM_DEFAULT_ATTRIBUTES);
-        
+    
     // Identity map the framebuffer
-    uint64_t fbBase = RNDWN((uint64_t)fb->baseAddress, PAGE_SIZE);
-    for (uint64_t addr = fbBase; addr < RNDUP(fbBase + fb->bufferSize, PAGE_SIZE); addr += PAGE_SIZE)
+    uint64_t fbBase = (uint64_t)fb->baseAddress;
+    uint64_t fbEnd = RNDUP(fbBase + fb->bufferSize, PAGE_SIZE);
+    for (uint64_t addr = fbBase; addr < fbEnd; addr += PAGE_SIZE)
         vmm_identityMapPage((void *)addr, VMM_DEFAULT_ATTRIBUTES);
     
     vmm_loadTable(g_pml4);
@@ -117,7 +119,7 @@ void *virt2phys(void *virt)
 void vmm_mapPage(void *phys, void *virt, const uint64_t attr)
 {
     uint64_t uphys = (uint64_t)phys;
-    uint64_t uvirt = (uint64_t)virt;
+    uint64_t uvirt = RNDWN((uint64_t)virt, PAGE_SIZE);
     
     uint64_t pml4Index = (uvirt >> 39) & 0x1FF;
     PageTable_t *pdp;
