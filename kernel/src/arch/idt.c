@@ -23,8 +23,13 @@ static void setEntry(const uint8_t index, const uint64_t offset, const uint16_t 
 void idt_load()
 {
     memset(g_idtEntries, 0, sizeof(g_idtEntries));
-    for (size_t i = 0; i <= IRQ15; i++)
-        setEntry(i, interruptHandlers[i], KERNEL_CS, IDT_INTERRUPT_GATE);
+    for (size_t i = 0; i < IDT_ENTRIES; i++)
+    {
+        if (i >= IRQ0 && i <= IRQ15)
+            setEntry(i, interruptHandlers[i], KERNEL_CS, IDT_TRAP_TYPE);
+        else
+            setEntry(i, interruptHandlers[i], KERNEL_CS, IDT_INTERRUPT_TYPE3);
+    }
     
     g_idt.base = (uint64_t)g_idtEntries;
     g_idt.size = sizeof(g_idtEntries) - 1;

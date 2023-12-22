@@ -16,7 +16,7 @@ enum PageAttributes
     PA_EXECUTE_DISABLED = 1ULL << 63
 };
 
-#define VMM_DEFAULT_ATTRIBUTES (PA_PRESENT | PA_READ_WRITE) 
+#define VMM_DEFAULT_ATTRIBUTES (PA_PRESENT | PA_READ_WRITE | PA_SUPERVISOR) 
 
 /// @brief Entry in the page table.
 typedef union PAGE_TABLE_ENTRY

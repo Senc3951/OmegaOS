@@ -17,3 +17,8 @@ x64_load_gdt:
     mov ss, ax
 
     ret
+
+global x64_flush_tss
+x64_flush_tss:
+    ltr di
+    ret

@@ -68,8 +68,7 @@ isr_common:
     xor rax, rax
     mov ax, ds
     push rax
-    
-    ; Handle the interrupt inside kernels data segment
+            
     mov ax, KERNEL_DS
     mov ds, ax
     mov es, ax
@@ -92,7 +91,7 @@ isr_common:
 
 interruptHandlers:
     %assign i 0
-    %rep 0x2F
+    %rep 0xFF
         dq INT%+i
     %assign i i+1
     %endrep

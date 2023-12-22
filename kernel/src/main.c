@@ -12,6 +12,8 @@
 #include <mem/heap.h>
 #include <drivers/storage/ide.h>
 #include <fs/ext2.h>
+#include <user/syscalls.h>
+#include <user/task.h>
 
 extern uint64_t _krnStart, _krnEnd;
 uint64_t _KernelStart, _KernelEnd;
@@ -41,13 +43,14 @@ extern int _entry(BootInfo_t *bootInfo)
     vmm_init(bootInfo->fb);
     heap_init(KRN_HEAP_START, KRN_HEAP_SIZE);
 
-    // Initialize disk controller
-    ide_init(ATA_DEVICE);
+    ide_init(ATA_DEVICE);   // Initialize disk controller
+    ext2_init();            // Initialize root filesystem
     
-    // Initialize root filesystem
-    ext2_init();
+    syscalls_init();        // Initialize syscalls
+    tss_late_set();         // Add stacks to the TSS
     
-    kprintf("Finished initialization\n");
-    __HCF();
+    extern void x64_test();
+    jump_to_user(x64_test);
+    
     panic("Unreachable");
 }

@@ -155,14 +155,14 @@ Chunk_t *g_first = NULL, *g_last = NULL;
 
 static void memory_chunk_init(Chunk_t *chunk)
 {
-	DLIST_INIT(chunk, all);
+    DLIST_INIT(chunk, all);
     chunk->used = 0;
     DLIST_INIT(chunk, free);
 }
 
 static size_t memory_chunk_size(const Chunk_t *chunk)
 {
-	char *end = (char *)(chunk->all.next);
+    char *end = (char *)(chunk->all.next);
     char *start = (char *)(&chunk->all);
     return (end - start) - HEADER_SIZE;
 }
@@ -195,6 +195,11 @@ static void push_free(Chunk_t *chunk)
 
 void heap_init(const uint64_t start, const size_t size)
 {
+    // Reserve the heap
+    uint64_t heapEnd = RNDUP(start + size, PAGE_SIZE);
+    for (uint64_t addr = start; addr < heapEnd; addr += PAGE_SIZE)
+        vmm_getPage((void *)addr, VMM_DEFAULT_ATTRIBUTES);
+    
     char *mem_start = (char *)(((intptr_t)start + ALIGN - 1) & (~(ALIGN - 1)));
     char *mem_end = (char *)(((intptr_t)start + size) & (~(ALIGN - 1)));
     g_first = (Chunk_t *)mem_start;
@@ -217,33 +222,34 @@ void heap_init(const uint64_t start, const size_t size)
 void *kmalloc(size_t size)
 {
     size = (size + ALIGN - 1) & (~(ALIGN - 1));
-	if (size < MIN_SIZE)
+    if (size < MIN_SIZE)
         size = MIN_SIZE;
-    
-	int n = memory_chunk_slot(size - 1) + 1;
-	if (n >= NUM_SIZES)
+
+    int n = memory_chunk_slot(size - 1) + 1;
+    if (n >= NUM_SIZES)
         return NULL;
-    
-	while(!g_freeChunks[n])
+
+    while (!g_freeChunks[n])
     {
-		++n;
-		if (n >= NUM_SIZES)
+        ++n;
+        if (n >= NUM_SIZES)
             return NULL;
     }
 
-	Chunk_t *chunk = DLIST_POP(&g_freeChunks[n], free);
+    Chunk_t *chunk = DLIST_POP(&g_freeChunks[n], free);
     size_t len = 0, size2 = memory_chunk_size(chunk);
-    if (size + sizeof(Chunk_t) <= size2) {
-		Chunk_t *chunk2 = (Chunk_t*)(((char*)chunk) + HEADER_SIZE + size);
-		memory_chunk_init(chunk2);
-		dlist_insert_after(&chunk->all, &chunk2->all);
+    if (size + sizeof(Chunk_t) <= size2)
+    {
+        Chunk_t *chunk2 = (Chunk_t*)(((char*)chunk) + HEADER_SIZE + size);
+        memory_chunk_init(chunk2);
+        dlist_insert_after(&chunk->all, &chunk2->all);
 
-		len = memory_chunk_size(chunk2);
-		int n = memory_chunk_slot(len);
-		DLIST_PUSH(&g_freeChunks[n], chunk2, free);
+        len = memory_chunk_size(chunk2);
+        int n = memory_chunk_slot(len);
+        DLIST_PUSH(&g_freeChunks[n], chunk2, free);
     }
-    
-	chunk->used = 1;
+
+    chunk->used = 1;
     return chunk->data;
 }
 
@@ -286,19 +292,19 @@ void kfree(void *addr)
     Chunk_t *prev = CONTAINER(Chunk_t, all, chunk->all.prev);
     if (next->used == 0)
     {
-		remove_free(next);
-		dlist_remove(&next->all);
+        remove_free(next);
+        dlist_remove(&next->all);
     }
     if (prev->used == 0)
     {
-		remove_free(prev);
-		dlist_remove(&chunk->all);
-		push_free(prev);
+        remove_free(prev);
+        dlist_remove(&chunk->all);
+        push_free(prev);
     }
     else
     {
-		chunk->used = 0;
-		DLIST_INIT(chunk, free);
-		push_free(chunk);
+        chunk->used = 0;
+        DLIST_INIT(chunk, free);
+        push_free(chunk);
     }
 }
