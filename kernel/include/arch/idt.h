@@ -2,18 +2,19 @@
 
 #include <common.h>
 
-#define IDT_ENTRIES         256
+#define IDT_ENTRIES     256
 
 /// @brief Entry in the IDT.
 typedef struct IDT_ENTRY
 {
     uint16_t offsetLow;
     uint16_t segment;
-    uint8_t empty;
+    uint8_t ist : 3;
+    uint8_t reserved0 : 5;
     uint8_t flags;
     uint16_t offsetMid;
     uint32_t offsetHigh;
-    uint32_t reserved;
+    uint32_t reserved1;
 } __PACKED__ IDTEntry_t;
 
 /// @brief Struct the CPU will receive.
@@ -31,7 +32,8 @@ typedef struct IDT
 
 #define IDT_INTERRUPT_TYPE0 (IDT_PRESENT | IDT_DPL0 | IDT_INTERRUPT)
 #define IDT_INTERRUPT_TYPE3 (IDT_PRESENT | IDT_DPL3 | IDT_INTERRUPT)
-#define IDT_TRAP_TYPE       (IDT_PRESENT | IDT_DPL0 | IDT_TRAP)
+#define IDT_TRAP_TYPE0      (IDT_PRESENT | IDT_DPL0 | IDT_TRAP)
+#define IDT_TRAP_TYPE3      (IDT_PRESENT | IDT_DPL3 | IDT_TRAP)
 
 /// @brief Load the IDT into the CPU.
 void idt_load();

@@ -50,8 +50,8 @@ static void dlist_remove(DList_t *d)
  
 static void dlist_push(DList_t **d1p, DList_t *d2)
 {
-	if (*d1p)
-	    dlist_insert_before(*d1p, d2);
+    if (*d1p)
+        dlist_insert_before(*d1p, d2);
     
     *d1p = d2;
 }
@@ -62,9 +62,9 @@ static DList_t *dlist_pop(DList_t **dp)
     DList_t *d2 = d1->next;
     dlist_remove(d1);
     if (d1 == d2)
-	    *dp = NULL;
+        *dp = NULL;
     else
-	    *dp = d2;
+        *dp = d2;
     
     return d1;
 }
@@ -72,9 +72,9 @@ static DList_t *dlist_pop(DList_t **dp)
 static void dlist_remove_from(DList_t **d1p, DList_t *d2)
 {
     if (*d1p == d2)
-	    dlist_pop(d1p);
+        dlist_pop(d1p);
     else
-	    dlist_remove(d2);
+        dlist_remove(d2);
 }
 
 #define CONTAINER(C, l, v)      ((C *)(((char *)v) - (intptr_t)&(((C *)0)->l)))

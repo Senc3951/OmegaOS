@@ -2,7 +2,7 @@
 
 #include <common.h>
 
-#define FS_MAX_NAME             256
+#define FS_MAX_PATH             256
 #define FS_PATH_SEPERATOR       '/'
 #define FS_PATH_SEPERATOR_STR   "/"
 #define FS_PATH_CURR_DIR        "."
@@ -47,7 +47,7 @@ typedef int (*delete_type_t)(VfsNode_t *, const char *);
 
 struct VFS_NODE
 {
-    char name[FS_MAX_NAME];
+    char name[FS_MAX_PATH];
     uint32_t attr;  /* Attributes of file. */
     uint32_t uid;
     uint32_t gid;
@@ -74,7 +74,7 @@ struct VFS_NODE
 typedef struct dirent
 {
     uint32_t ino;
-    char name[FS_MAX_NAME];
+    char name[FS_MAX_PATH];
 } dirent;
 
 extern VfsNode_t *_RootFS;

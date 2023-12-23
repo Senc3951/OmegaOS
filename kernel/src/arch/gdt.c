@@ -1,4 +1,5 @@
 #include <arch/gdt.h>
+#include <arch/idt.h>
 #include <libc/string.h>
 #include <mem/heap.h>
 #include <assert.h>
@@ -40,11 +41,6 @@ static void setTSS(const uint8_t i)
 		.access = 0b10001001,               // Present, Execute-Only, Accessed
 		.flags = 0b00010000					// Available
 	};
-}
-
-static void setTSSIst(size_t i, void *stack)
-{
-    g_gdtBlock.tss.ist[i] = (uint64_t)stack;
 }
 
 static void setTSSRing(size_t i, void *stack)

@@ -1,6 +1,7 @@
 #include <fs/vfs.h>
 #include <mem/heap.h>
-#include <list.h>
+#include <scheduler/process.h>
+#include <misc/list.h>
 #include <libc/string.h>
 
 VfsNode_t *_RootFS = NULL;
@@ -92,7 +93,7 @@ cleanup:
 
 VfsNode_t *vfs_openFile(const char *name, uint32_t attr)
 {
-    char *cwd = "/";
+    char *cwd = _CurrentProcess->cwd;
     char *path = normalizePath(cwd, name);
     if (!path)
         return NULL;
@@ -207,7 +208,7 @@ VfsNode_t *vfs_finddir(VfsNode_t *node, const char *name)
 
 static int getParent(const char *name, uint32_t attr, VfsNode_t **parent, const char **fileName)
 {
-    char *cwd = "/";    // For now
+    char *cwd = _CurrentProcess->cwd;
     char *path = normalizePath(cwd, name);    
     if (!path)
         return EPERM;

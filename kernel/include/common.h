@@ -18,6 +18,8 @@ extern uint64_t _KernelStart, _KernelEnd;
 #define GDT_USER_DS     ((5 * 8) | 0b11)
 #define GDT_TSS_INDEX   ((6 * 8) | 0b11)
 
+#define ROOT_PID        1
+
 #define IRQ_SLAVE       2
 #define IRQ0            0x20
 #define IRQ15           0x2F
@@ -28,9 +30,11 @@ extern uint64_t _KernelStart, _KernelEnd;
 
 #define PAGE_SIZE       4096
 
-#define KRN_HEAP_START      (_KernelEnd + 4 * _MB)
-#define KRN_HEAP_SIZE       (4 * _MB)
-#define KERNEL_STACK_SIZE   (8 * _KB)
+#define KRN_HEAP_START          (_KernelEnd + 4 * _MB)
+#define KRN_HEAP_SIZE           (4 * _MB)
+#define KERNEL_STACK_SIZE       (8 * _KB)
+#define PROC_STACK_SIZE         (8 * _KB)
+#define IDLE_PROC_STACK_SIZE    (1 * _KB)
 
 #define RNDUP(num, nm)  ((num) < nm ? nm : (((num) / nm) * nm))
 #define RNDWN(num, nm)  ((((num) + nm - 1) / nm) * nm)

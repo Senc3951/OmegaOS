@@ -65,7 +65,7 @@ static void pageFaultHandler(InterruptStack_t *stack)
 
 void vmm_init(const Framebuffer_t *fb)
 {
-    assert(isr_registerHandler(PageFault, true, pageFaultHandler));
+    assert(isr_registerHandler(PageFault, pageFaultHandler));
     
     // Create the PML4 table.
     assert(g_pml4 = (PageTable_t *)pmm_getFrame());

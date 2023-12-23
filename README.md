@@ -10,7 +10,7 @@ x86_64 UEFI-based operating system built from scratch.
 - [x] ATA
 - [x] Virtual filesystem
 - [x] Filesystem (ext2)
-- [ ] Process management
+- [x] Process management
 - [ ] User space
 
 ## Building

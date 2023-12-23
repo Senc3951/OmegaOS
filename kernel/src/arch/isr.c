@@ -13,11 +13,14 @@ void isr_init()
         g_handlers[i] = NULL;
 }
 
-bool isr_registerHandler(const uint8_t interrupt, const bool autoUnmaskIRQ, ISRHandler handler)
+bool isr_registerHandler(const uint8_t interrupt, ISRHandler handler)
 {
     if (g_handlers[interrupt])
         return false;
 
+    g_handlers[interrupt] = handler;
+    LOG("Registered a handler for interrupt %u\n", interrupt);
+    
     // Prepare IRQ interrupt if necessary
     if (interrupt >= IRQ0 && interrupt <= IRQ15)
     {
@@ -28,12 +31,8 @@ bool isr_registerHandler(const uint8_t interrupt, const bool autoUnmaskIRQ, ISRH
             g_slaveEnabled = true;
         }
         
-        if (autoUnmaskIRQ)
-            pic_unmask(irqNum);
+        pic_unmask(irqNum);
     }
-
-    g_handlers[interrupt] = handler;
-    LOG("Registered a handler for interrupt %u\n", interrupt);
     
     return true;
 }
@@ -43,9 +42,10 @@ extern void isr_interrupt_handler(InterruptStack_t *stack)
     uint64_t intNum = stack->interruptNumber;
     if (g_handlers[intNum])
     {
-        g_handlers[intNum](stack);
         if (intNum >= IRQ0 && intNum <= IRQ15)
             pic_sendEOI(intNum - IRQ0);
+        
+        g_handlers[intNum](stack);
     }
     else
         ipanic(stack, "Unhandled interrupt");

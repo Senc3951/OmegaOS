@@ -14,9 +14,9 @@ typedef struct INTERRUPT_STACK
 } __PACKED__ InterruptStack_t;
 
 /// @brief List of available interrupts.
-enum InterruptsList
+enum INTERRUPT_LIST
 {
-    DivisionError  = 0,
+    DivisionError = 0,
     DebugError,
     NMIError,
     BreakpointError,
@@ -49,7 +49,6 @@ void isr_init();
 
 /// @brief Register an interrupt handler.
 /// @param interrupt Interrupt number to register the handler to.
-/// @param autoUnmaskIRQ Unmask the IRQ line if enabled.
 /// @param handler Handler that will be called on the interrupt.
 /// @return True if successfully registered the interrupt, False, otherwise.
-bool isr_registerHandler(const uint8_t interrupt, const bool autoUnmaskIRQ, ISRHandler handler);
+bool isr_registerHandler(const uint8_t interrupt, ISRHandler handler);

@@ -1,5 +1,5 @@
 #include <fs/ext2.h>
-#include <drivers/storage/ide.h>
+#include <dev/storage/ide.h>
 #include <mem/heap.h>
 #include <assert.h>
 #include <libc/string.h>

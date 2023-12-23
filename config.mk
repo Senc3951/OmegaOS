@@ -14,7 +14,7 @@ export OUTPUT_KERNEL := $(OUTPUT_DIR)/kernel.elf
 export OUTPUT_OS_FILE := $(OUTPUT_DIR)/$(OS_NAME).img
 export FONT_FILE := $(RESOURCES_DIR)/zap-light16.psf
 export BOOTEFI := $(GNU_EFI_DIR)/x86_64/bootloader/main.efi
-export INITRD_FILE := $(OUTPUT_DIR)/initrd.img
+export INITRD_FILE := $(OUTPUT_DIR)/rootfs.img
 export LOG_FILE := serial.log
 
 export AS := nasm
