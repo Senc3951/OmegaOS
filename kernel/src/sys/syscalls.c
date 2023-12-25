@@ -1,11 +1,12 @@
-#include <scheduler/syscalls.h>
+#include <sys/syscalls.h>
+#include <sys/scheduler.h>
 #include <arch/isr.h>
 #include <assert.h>
 #include <logger.h>
 
 int sys_exit(int code)
 {
-    LOG("exit: %d\n", code);
+    scheduler_remove(_CurrentProcess);
     return code;
 }
 

@@ -1,6 +1,6 @@
 #include <fs/vfs.h>
 #include <mem/heap.h>
-#include <scheduler/process.h>
+#include <sys/scheduler.h>
 #include <misc/list.h>
 #include <libc/string.h>
 

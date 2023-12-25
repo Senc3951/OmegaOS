@@ -11,7 +11,7 @@ x86_64 UEFI-based operating system built from scratch.
 - [x] Virtual filesystem
 - [x] Filesystem (ext2)
 - [x] Process management
-- [ ] User space
+- [x] User space
 
 ## Building
 > [!NOTE]

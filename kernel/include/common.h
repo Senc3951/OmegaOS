@@ -34,7 +34,7 @@ extern uint64_t _KernelStart, _KernelEnd;
 #define KRN_HEAP_SIZE           (4 * _MB)
 #define KERNEL_STACK_SIZE       (8 * _KB)
 #define PROC_STACK_SIZE         (8 * _KB)
-#define IDLE_PROC_STACK_SIZE    (1 * _KB)
+#define INIT_PROC_STACK_SIZE    (1 * _KB)
 
 #define RNDUP(num, nm)  ((num) < nm ? nm : (((num) / nm) * nm))
 #define RNDWN(num, nm)  ((((num) + nm - 1) / nm) * nm)

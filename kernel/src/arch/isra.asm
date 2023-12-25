@@ -16,54 +16,47 @@ global interruptHandlers
         jmp isr_common
 %endmacro
 
-%macro pusha 0
-    push r15
-    push r14
-    push r13
-    push r12
-    push r11
-    push r10
-    push r9
-    push r8
-    mov r8, cr3
-    push r8
-    mov r8, cr2
-    push r8
-    mov r8, cr0
-    push r8
-    push rbp
+%macro pushaq 0
+    push rax
+    push rbx
+    push rcx
+    push rdx
     push rdi
     push rsi
-    push rdx
-    push rcx
-    push rbx
-    push rax
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
 %endmacro
 
-%macro popa 0
-    pop rax
-    pop rbx
-    pop rcx
-    pop rdx
+%macro popaq 0
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
     pop rsi
     pop rdi
-    pop rbp
-    add rsp, 24
-    pop r8
-    pop r9
-    pop r10
-    pop r11
-    pop r12
-    pop r13
-    pop r14
-    pop r15
+    pop rdx
+    pop rdx
+    pop rbx
+    pop rax
 %endmacro
 
 %include "src/arch/isra.inc"
 
 isr_common:
     cld
-    pusha
+    pushaq
     
     xor rax, rax
     mov ax, ds
@@ -85,7 +78,7 @@ isr_common:
     mov fs, ax
     mov gs, ax
     
-    popa
+    popaq
     add rsp, 16     ; Remove interrupt number and error code    
     iretq
 

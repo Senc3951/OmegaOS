@@ -1,8 +1,7 @@
 #include <dev/pit.h>
 #include <io/io.h>
 #include <arch/isr.h>
-#include <scheduler/process.h>
-#include <scheduler/scheduler.h>
+#include <sys/scheduler.h>
 #include <assert.h>
 #include <logger.h>
 

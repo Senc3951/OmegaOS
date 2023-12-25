@@ -1,6 +1,7 @@
 #include <mem/vmm.h>
 #include <mem/pmm.h>
 #include <arch/isr.h>
+#include <arch/cpu.h>
 #include <assert.h>
 #include <panic.h>
 #include <libc/string.h>
@@ -49,7 +50,7 @@ static PageTable_t *createEntry(PageTable_t *pt, uint64_t index, const uint64_t 
 
 static void pageFaultHandler(InterruptStack_t *stack)
 {
-    uint64_t virtAddr = stack->cr2;
+    uint64_t virtAddr = READ_CR2();
     uint64_t errCode = stack->errorCode;
 
     if (errCode & PF_PRESENT || errCode & PF_WRITABLE)

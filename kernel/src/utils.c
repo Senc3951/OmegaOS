@@ -1,4 +1,5 @@
 #include <utils.h>
+#include <arch/cpu.h>
 #include <gui/screen.h>
 
 void dumpStack(InterruptStack_t *stack)
@@ -10,5 +11,7 @@ void dumpStack(InterruptStack_t *stack)
         stack->r8, stack->r9, stack->r10, stack->r11, stack->r12, stack->r13, stack->r14, stack->r15);
     kprintf("CS  = 0x%p, DS  = 0x%p, SS  = 0x%p, RIP = 0x%p, RSP = 0x%p, RFL = 0x%p\n",
         stack->cs, stack->ds, stack->ss, stack->rip, stack->rsp, stack->rflags);
-    kprintf("CR0 = 0x%p, CR2 = 0x%p, CR3 = 0x%p\n", stack->cr0, stack->cr2, stack->cr3);
+    
+    uint64_t cr0 = READ_CR0(), cr2 = READ_CR2(), cr3 = READ_CR3();
+    kprintf("CR0 = 0x%p, CR2 = 0x%p, CR3 = 0x%p\n", cr0, cr2, cr3);
 }

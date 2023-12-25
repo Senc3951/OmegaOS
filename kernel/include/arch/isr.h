@@ -6,9 +6,8 @@
 typedef struct INTERRUPT_STACK
 {
     uint64_t ds;
-    uint64_t rax, rbx, rcx, rdx, rsi, rdi, rbp;
-    uint64_t cr0, cr2, cr3;
-    uint64_t r8, r9, r10, r11, r12, r13, r14, r15;
+    uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
+    uint64_t rbp, rsi, rdi, rdx, rcx, rbx, rax;
     uint64_t interruptNumber, errorCode;
     uint64_t rip, cs, rflags, rsp, ss;
 } __PACKED__ InterruptStack_t;
