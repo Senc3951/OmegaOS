@@ -45,6 +45,12 @@ typedef struct GDT
     uint64_t base;
 } __PACKED__ GDT_t;
 
+#define GDT_KERNEL_CS           0x8
+#define GDT_KERNEL_DS           0x10
+#define GDT_USER_CS             ((4 * 8) | 0b11)
+#define GDT_USER_DS             ((5 * 8) | 0b11)
+#define GDT_TSS_INDEX           ((6 * 8) | 0b11)
+
 #define GDT_PRESENT             (1 << 7)
 #define GDT_DPL0                (0 << 5)
 #define GDT_DPL3                (3 << 5)

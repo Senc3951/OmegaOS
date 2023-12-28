@@ -2,8 +2,6 @@
 
 #include <bootinfo.h>
 
-#define ENTRIES_PER_PAGE_TABLE 512
-
 enum PageAttributes
 {
     PA_PRESENT          = 1ULL << 0,
@@ -16,7 +14,9 @@ enum PageAttributes
     PA_EXECUTE_DISABLED = 1ULL << 63
 };
 
-#define VMM_DEFAULT_ATTRIBUTES (PA_PRESENT | PA_READ_WRITE | PA_SUPERVISOR) 
+#define ENTRIES_PER_PAGE_TABLE  512
+#define VMM_KERNEL_ATTRIBUTES   (PA_PRESENT | PA_READ_WRITE)
+#define VMM_USER_ATTRIBUTES     (PA_PRESENT | PA_READ_WRITE | PA_SUPERVISOR) 
 
 /// @brief Entry in the page table.
 typedef union PAGE_TABLE_ENTRY
@@ -51,38 +51,46 @@ typedef struct PAGE_TABLE
 /// @param fb Framebuffer.
 void vmm_init(const Framebuffer_t *fb);
 
-/// @brief Load the table into the CR3 register.
-/// @param pml4 PML4 table to load.
-void vmm_loadTable(PageTable_t *pml4);
+/// @brief Create a new address space.
+/// @return New address space.
+PageTable_t *vmm_createAddressSpace();
 
 /// @brief Get the physical address a virtual one is mapped to.
+/// @param pml4 Table to perform the operation on.
 /// @param virt Virtual address.
 /// @return Physical address the virtual one is mapped, NULL, otherwise.
-void *virt2phys(void *virt);
+void *virt2phys(PageTable_t *pml4, void *virt);
 
 /// @brief Map a physical address to a virtual one.
+/// @param pml4 Table to perform the operation on.
 /// @param phys Physical address.
 /// @param virt Virtual address.
 /// @param attr Attributes to map the address with.
-void vmm_mapPage(void *phys, void *virt, const uint64_t attr);
+void vmm_mapPage(PageTable_t *pml4, void *phys, void *virt, const uint64_t attr);
 
 /// @brief Identity map a physical address to a virtual one.
+/// @param pml4 Table to perform the operation on.
 /// @param phys Physical address.
 /// @param attr Attributes to map the address with.
-void vmm_identityMapPage(void *phys, const uint64_t attr);
+void vmm_identityMapPage(PageTable_t *pml4, void *phys, const uint64_t attr);
 
 /// @brief Remove a page from the page table.
+/// @param pml4 Table to perform the operation on.
 /// @param virt Virtual address to remove from the page table.
 /// @return Physical address the page was mapped to, NULL if wasn't mapped.
-void *vmm_unmapPage(void *virt);
+void *vmm_unmapPage(PageTable_t *pml4, void *virt);
 
 /// @brief Allocate a virtual page and map it in the page table.
+/// @param pml4 Table to perform the operation on.
 /// @param virt Virtual address to map the page to.
 /// @param attr Attributes of the page.
 /// @return Virtual address of the page.
-void *vmm_getPage(void *virt, const uint64_t attr);
+void *vmm_getPage(PageTable_t *pml4, void *virt, const uint64_t attr);
 
 /// @brief Allocate a virtual page and map it in the page table.
+/// @param pml4 Table to perform the operation on.
 /// @param attr Attributes of the page.
 /// @return Virtual address of the page.
-void *vmm_getIdentityPage(const uint64_t attr);
+void *vmm_getIdentityPage(PageTable_t *pml4, const uint64_t attr);
+
+extern PageTable_t *_KernelPML4;

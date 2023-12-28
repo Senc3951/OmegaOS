@@ -12,6 +12,9 @@ x86_64 UEFI-based operating system built from scratch.
 - [x] Filesystem (ext2)
 - [x] Process management
 - [x] User space
+- [ ] SMP
+- [ ] USB
+- [ ] Network
 
 ## Building
 > [!NOTE]
@@ -21,7 +24,7 @@ x86_64 UEFI-based operating system built from scratch.
 Install `gcc`, `nasm`, `ld`, `makefile`, `mtools` and `qemu`.
 
 ### Setup
-Once installed, enter the directory and run ```./build.sh```.
+Once installed, enter the directory and run ```make setup && sudo ./build.sh```
 
 ### Running
 run `make`.

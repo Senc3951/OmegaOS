@@ -198,7 +198,8 @@ void heap_init(const uint64_t start, const size_t size)
     // Reserve the heap
     uint64_t heapEnd = RNDUP(start + size, PAGE_SIZE);
     for (uint64_t addr = start; addr < heapEnd; addr += PAGE_SIZE)
-        vmm_getPage((void *)addr, VMM_DEFAULT_ATTRIBUTES);
+        vmm_getPage(_KernelPML4, (void *)addr, VMM_KERNEL_ATTRIBUTES);
+    LOG("Kernel Heap: %p - %p\n", start, heapEnd);
     
     char *mem_start = (char *)(((intptr_t)start + ALIGN - 1) & (~(ALIGN - 1)));
     char *mem_end = (char *)(((intptr_t)start + size) & (~(ALIGN - 1)));

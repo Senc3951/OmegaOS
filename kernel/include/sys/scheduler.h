@@ -8,13 +8,18 @@ void spawnInit();
 
 /// @brief Add a process to the scheduler.
 /// @param process Process to add.
-void scheduler_addProcess(Process_t *process);
+void scheduler_add(Process_t *process);
 
+/// @brief Remove a process from the scheduler.
+/// @param process Process to remove.
 void scheduler_remove(Process_t *process);
 
 /// @brief Switch a process.
+void yield();
+
+/// @brief Switch a process.
 /// @param stack Stack before switching the process.
-void yield(InterruptStack_t *stack);
+void yield_cs(InterruptStack_t *stack);
 
 extern Process_t *_CurrentProcess;  /* Current running process. */
 extern Process_t *_InitProcess;     /* Init process. */

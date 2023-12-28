@@ -1,4 +1,5 @@
 #include <arch/idt.h>
+#include <arch/gdt.h>
 #include <libc/string.h>
 
 extern uint64_t interruptHandlers[];
@@ -26,9 +27,11 @@ void idt_load()
     for (size_t i = 0; i < IDT_ENTRIES; i++)
     {
         if (i >= IRQ0 && i <= IRQ15)
-            setEntry(i, interruptHandlers[i], KERNEL_CS, IDT_TRAP_TYPE3, 0);
+            setEntry(i, interruptHandlers[i], GDT_KERNEL_CS, IDT_TRAP_TYPE0, 0);
+        else if (i == SYSCALL)
+            setEntry(i, interruptHandlers[i], GDT_KERNEL_CS, IDT_INTERRUPT_TYPE3, 0);
         else
-            setEntry(i, interruptHandlers[i], KERNEL_CS, IDT_INTERRUPT_TYPE3, 0);
+            setEntry(i, interruptHandlers[i], GDT_KERNEL_CS, IDT_INTERRUPT_TYPE0, 0);
     }
     
     g_idt.base = (uint64_t)g_idtEntries;

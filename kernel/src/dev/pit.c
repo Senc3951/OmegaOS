@@ -18,7 +18,7 @@ static void interruptHandler(InterruptStack_t *stack)
         if (g_test == 0)
         {
             g_test = TIME;
-            yield(stack);
+            yield_cs(stack);
         }
     }
     

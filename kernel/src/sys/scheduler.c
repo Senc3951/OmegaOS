@@ -3,12 +3,13 @@
 #include <io/io.h>
 #include <assert.h>
 #include <libc/string.h>
-#include <logger.h>
 
-#define SWITCH_PROCESS(process) { x64_switch_processes(GDT_USER_CS, GDT_USER_DS, &process->regs); }
+#define SWITCH_PROCESS(process) ({                          \
+    process->status = PROCESS_STATUS_RUNNING;               \
+    x64_switch_processes(&process->ctx, process->ctx.cr3);  \
+})
 
-extern void x64_switch_processes(uint64_t cs, uint64_t ds, PRegisters_t *regs);
-extern void x64_idle_proccess();
+extern void x64_switch_processes(Context_t *ctx, uint64_t cr3);
 
 Process_t *_CurrentProcess = NULL, *_InitProcess = NULL;
 
@@ -25,22 +26,20 @@ static Process_t *getNextProcess()
             g_processIndex = 0;
         
         curr = g_processes[g_processIndex++];
-        if (curr->id != 0)
+        if (curr->status == PROCESS_STATUS_PENDING)
             return curr;
     } while (true);
 }
 
 void spawnInit()
-{
-    void *initStack = kmalloc(INIT_PROC_STACK_SIZE);
-    assert(initStack);
-    
-    _CurrentProcess = _InitProcess = process_create("init", x64_idle_proccess, initStack, INIT_PROC_STACK_SIZE);
+{    
+    _CurrentProcess = _InitProcess = process_createInit();
     _InitProcess->id = ROOT_PID;
+    
     SWITCH_PROCESS(_InitProcess);
 }
 
-void scheduler_addProcess(Process_t *process)
+void scheduler_add(Process_t *process)
 {
     process->id = ++g_nextID;
     g_processes[g_processCount++] = process;
@@ -48,25 +47,41 @@ void scheduler_addProcess(Process_t *process)
 
 void scheduler_remove(Process_t *process)
 {
-    process->id = 0;
+    assert(process->status != PROCESS_STATUS_STOPPED);
+    process->status = PROCESS_STATUS_STOPPED;
+}
+
+void yield()
+{
     _CurrentProcess = getNextProcess();
     SWITCH_PROCESS(_CurrentProcess);
 }
 
-void yield(InterruptStack_t *stack)
+void yield_cs(InterruptStack_t *stack)
 {
-    _CurrentProcess->regs.rsp = stack->rsp;
-    _CurrentProcess->regs.rbp = stack->rbp;
-    _CurrentProcess->regs.rip = stack->rip;
-    _CurrentProcess->regs.rflags = stack->rflags;
-    _CurrentProcess->regs.rax = stack->rax;
-    _CurrentProcess->regs.rbx = stack->rbx;
-    _CurrentProcess->regs.rcx = stack->rcx;
-    _CurrentProcess->regs.rdx = stack->rdx;
-    _CurrentProcess->regs.rdi = stack->rdi;
-    _CurrentProcess->regs.rsi = stack->rsi;
+    assert(_CurrentProcess->status == PROCESS_STATUS_RUNNING);
+
+    _CurrentProcess->ctx.rip = stack->rip;
+    _CurrentProcess->ctx.cs = stack->cs;
+    _CurrentProcess->ctx.rsp = stack->rsp;
+    _CurrentProcess->ctx.rflags = stack->rflags;
+    _CurrentProcess->ctx.ss = stack->ds;
+    _CurrentProcess->ctx.rax = stack->rax;
+    _CurrentProcess->ctx.rbx = stack->rbx;
+    _CurrentProcess->ctx.rcx = stack->rcx;
+    _CurrentProcess->ctx.rdx = stack->rdx;
+    _CurrentProcess->ctx.rdi = stack->rdi;
+    _CurrentProcess->ctx.rsi = stack->rsi;
+    _CurrentProcess->ctx.rbp = stack->rbp;
+    _CurrentProcess->ctx.r8 = stack->r8;
+    _CurrentProcess->ctx.r9 = stack->r9;
+    _CurrentProcess->ctx.r10 = stack->r10;
+    _CurrentProcess->ctx.r11 = stack->r11;
+    _CurrentProcess->ctx.r12 = stack->r12;
+    _CurrentProcess->ctx.r13 = stack->r13;
+    _CurrentProcess->ctx.r14 = stack->r14;
+    _CurrentProcess->ctx.r15 = stack->r15;
     
-    _CurrentProcess = getNextProcess();
-    LOG("%s\n", _CurrentProcess->name);
-    SWITCH_PROCESS(_CurrentProcess);
+    _CurrentProcess->status = PROCESS_STATUS_PENDING;
+    yield();
 }

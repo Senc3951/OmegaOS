@@ -1,10 +1,14 @@
 #include <arch/isr.h>
 #include <arch/pic.h>
+#include <arch/gdt.h>
+#include <sys/syscalls.h>
 #include <panic.h>
 #include <logger.h>
 
 static ISRHandler g_handlers[IDT_ENTRIES];
 static bool g_slaveEnabled;
+
+#define USER_INTERRUPT(stack) (stack->cs == GDT_USER_CS && stack->ds == GDT_USER_DS)
 
 void isr_init()
 {
@@ -47,6 +51,8 @@ extern void isr_interrupt_handler(InterruptStack_t *stack)
         
         g_handlers[intNum](stack);
     }
+    else if (USER_INTERRUPT(stack))
+        sys_exit(0);
     else
         ipanic(stack, "Unhandled interrupt");
 }

@@ -6,24 +6,37 @@
 #define MAX_PROCESS_NAME    50
 #define MAX_PROCESS_COUNT   50
 
-/// @brief Registers stored of a process.
-typedef struct PROCESS_REGISTERS
+#define PROCESS_STATUS_PENDING  0
+#define PROCESS_STATUS_RUNNING  1
+#define PROCESS_STATUS_STOPPED  2
+
+/// @brief Context of a process.
+typedef struct CONTEXT
 {
-    uint64_t rsp, rbp, rip, rflags;
-    uint64_t rax, rbx, rcx, rdx, rdi, rsi;
-} PRegisters_t;
+    uint64_t rip, cs, rsp, rflags, ss;
+    struct
+    {
+        uint64_t rax, rbx, rcx, rdx, rdi, rsi, rbp;
+        uint64_t r8, r9, r10, r11, r12, r13, r14, r15;
+    };
+    uint64_t stackSize;
+    uint64_t cr3;
+} Context_t;
 
 /// @brief Information of a process. 
 typedef struct PROCESS
 {
     int id;
-    PRegisters_t regs;
+    int status;
+    Context_t ctx;
     PageTable_t *pml4;
     char name[MAX_PROCESS_NAME];
     char cwd[FS_MAX_PATH];
-    struct PROCESS *next;
-    struct PROCESS *prev;
 } Process_t;
+
+/// @brief Create the init process.
+/// @return Init process.
+Process_t *process_createInit();
 
 /// @brief Create a process.
 /// @param name Name of the process.
@@ -32,3 +45,7 @@ typedef struct PROCESS
 /// @param stackSize Size of the stack.
 /// @return Created process.
 Process_t *process_create(const char *name, void *entry, void *stack, const size_t stackSize);
+
+/// @brief Delete a process.
+/// @param process Process to delete.
+void process_delete(Process_t *process);

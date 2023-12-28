@@ -4,10 +4,13 @@
 #include <assert.h>
 #include <logger.h>
 
-int sys_exit(int code)
+int sys_exit(int status)
 {
+    LOG("exising: %s with status: %d\n", _CurrentProcess->name, status);
     scheduler_remove(_CurrentProcess);
-    return code;
+    yield();
+    
+    return status;
 }
 
 int sys_test(int a)
@@ -28,8 +31,9 @@ static syscall_func_t g_syscalls[] =
 static void syscallHandler(InterruptStack_t *stack)
 {
     uint64_t num = stack->rax;
-    assert(num < SYSCALL_COUNT && g_syscalls[num]);
-    
+    if (num >= SYSCALL_COUNT)
+        sys_exit(0);
+        
     long ret = g_syscalls[num](stack->rdi, stack->rsi, stack->rdx, stack->rcx, stack->rbx);
     stack->rax = ret;
 }

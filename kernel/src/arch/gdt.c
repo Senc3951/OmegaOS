@@ -66,7 +66,7 @@ void gdt_load()
     extern void x64_load_gdt(GDT_t *gdt, uint64_t cs, uint64_t ds);
     extern void x64_flush_tss(uint16_t index);
     
-    x64_load_gdt(&g_gdt, KERNEL_CS, KERNEL_DS);
+    x64_load_gdt(&g_gdt, GDT_KERNEL_CS, GDT_KERNEL_DS);
     x64_flush_tss(GDT_TSS_INDEX);
 }
 

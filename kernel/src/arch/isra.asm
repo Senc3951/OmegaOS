@@ -2,7 +2,7 @@ bits 64
 
 KERNEL_DS equ 0x10
 
-extern isr_interrupt_handler
+extern isr_interrupt_handler, _KernelDS, _KernelPML4
 global interruptHandlers
 
 %macro ISR_EXCEPTION 2
@@ -58,11 +58,15 @@ isr_common:
     cld
     pushaq
     
+    ; switch to kernel pml4
+    mov rax, [_KernelPML4]
+    mov cr3, rax
+
     xor rax, rax
     mov ax, ds
     push rax
-            
-    mov ax, KERNEL_DS
+    
+    mov ax, KERNEL_DS   ; switch to kernel ds
     mov ds, ax
     mov es, ax
     mov fs, ax
@@ -71,15 +75,14 @@ isr_common:
     mov rdi, rsp
     call isr_interrupt_handler
     
-    ; Restore ds
-    pop rax
+    pop rax     ; restore ds
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
     
     popaq
-    add rsp, 16     ; Remove interrupt number and error code    
+    add rsp, 16     ; remove interrupt number and error code    
     iretq
 
 interruptHandlers:
