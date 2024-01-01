@@ -55,9 +55,10 @@ extern int _entry(BootInfo_t *bootInfo)
     ext2_init();            // Initialize root filesystem
     
     // Initialize user-space related 
-    tss_late_set();         // Add stacks to the TSS
-    syscalls_init();        // Initialize syscalls
-    scheduler_init();       // Initialize required structs
+    tss_late_set();                     // Add stacks to the TSS
+    syscalls_init();                    // Initialize syscalls
+    Process_t *init = process_init();   // Initialize process related structs and init process
+    scheduler_init(init);               // Initialize required scheduling structs
     
     process_create("p1", t1);
     process_create("p2", t2);

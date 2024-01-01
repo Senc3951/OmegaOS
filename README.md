@@ -24,13 +24,14 @@ x86_64 UEFI-based operating system built from scratch.
 Install `gcc`, `nasm`, `ld`, `makefile`, `mtools` and `qemu`.
 
 ### Setup
-Once installed, enter the directory and run ```make setup && sudo ./build.sh```
+Enter the directory and run ```make setup && sudo ./build.sh```
 
 ### Running
 run `make`.
 
 ### Debugging
-First, make sure that debugging is enabled in config.mk, if it wasn't, enable it and clear the project by running ```make clean``` and then run ```make debug```.
+First, make sure that debugging is enabled in config.mk, if it wasn't, enable it and clear the project by running ```make clean```.
+Run ```make debug```.
 
 On a seperate terminal, run the following commands
 ```bash

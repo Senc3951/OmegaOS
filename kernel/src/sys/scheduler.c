@@ -34,10 +34,12 @@ static Process_t *getNextProcess()
     return next;
 }
 
-void scheduler_init()
+void scheduler_init(Process_t *init)
 {
     assert(g_readyQueue = queue_create());
-    _CurrentProcess = process_createInit();
+    
+    _CurrentProcess = init;
+    scheduler_add(init);
 }
 
 void scheduler_add(Process_t *process)

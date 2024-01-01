@@ -6,6 +6,8 @@ t1:
     mov rdi, 1
 .loop:
     int 0x80
+    mov rax, 0
+    int 0x80
     jmp .loop
 
 t2:

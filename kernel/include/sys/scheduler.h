@@ -4,7 +4,8 @@
 #include <sys/process.h>
 
 /// @brief Initialize the scheduler.
-void scheduler_init();
+/// @param init Init process.
+void scheduler_init(Process_t *init);
 
 /// @brief Add a process to the scheduler.
 /// @param process Process to add.
