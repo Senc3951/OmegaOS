@@ -3,26 +3,24 @@
 #include <common.h>
 
 /// @brief Initialize the heap.
-/// @param start Start of the heap.
-/// @param size Size of the heap.
-void heap_init(const uint64_t start, const size_t size);
+void heap_init();
 
 /// @brief Allocate memory.
 /// @param size Size in bytes of allocated memory.
 /// @return Pointer to the allocated memory, NULL if failed.
-void *kmalloc(size_t size);
+__MALLOC__ void *kmalloc(size_t size);
 
 /// @brief Allocate and zero memory.
 /// @param size Size in bytes of allocated memory.
 /// @return Pointer to the allocated memory, NULL if failed.
-void *kcalloc(size_t size);
+__MALLOC__ void *kcalloc(size_t size);
 
 /// @brief Reallocate memory.
-/// @param addr Address of previous memory.
-/// @param ns New size of allocate to.
+/// @param ptr Address of previous memory.
+/// @param size New size of allocate to.
 /// @return Pointer to new memory.
-void *krealloc(void *addr, size_t ns);
+__MALLOC__ void *krealloc(void *ptr, size_t size);
 
 /// @brief Free previously allocated memory.
-/// @param addr Address of allocated memory.
-void kfree(void *addr);
+/// @param ptr Address of allocated memory.
+void kfree(void *ptr);

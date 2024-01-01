@@ -6,8 +6,9 @@
 
 int sys_exit(int status)
 {
-    LOG("exising: %s with status: %d\n", _CurrentProcess->name, status);
+    LOG("exiting: %s with status: %d\n", _CurrentProcess->name, status);
     scheduler_remove(_CurrentProcess);
+    process_delete(_CurrentProcess);
     yield();
     
     return status;

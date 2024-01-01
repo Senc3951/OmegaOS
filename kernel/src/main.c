@@ -17,8 +17,8 @@
 #include <sys/process.h>
 #include <sys/scheduler.h>
 
-extern uint64_t _krnStart, _krnEnd;
-uint64_t _KernelStart, _KernelEnd;
+extern uint64_t _kernel_start, _kernel_end, _kernel_writable_start, _kernel_writable_end;
+uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd;
 
 extern void t1();
 extern void t2();
@@ -29,9 +29,11 @@ extern int _entry(BootInfo_t *bootInfo)
     eassert(bootInfo && bootInfo->fb && bootInfo->font && bootInfo->mmap);
     eassert(serial_init());
     
-    _KernelStart = (uint64_t)&_krnStart;
-    _KernelEnd = (uint64_t)&_krnEnd;
-    LOG("Kernel resides at: 0x%x - 0x%x\n", _KernelStart, _KernelEnd);
+    _KernelStart = (uint64_t)&_kernel_start;
+    _KernelEnd = (uint64_t)&_kernel_end;
+    _KernelWritableStart = (uint64_t)&_kernel_writable_start;
+    _KernelWritableEnd = (uint64_t)&_kernel_writable_end;
+    LOG("Kernel resides at: %p - %p. Writable: %p - %p\n", _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd);
     
     // Initialize screen
     screen_init(bootInfo->fb, bootInfo->font);
@@ -46,23 +48,22 @@ extern int _entry(BootInfo_t *bootInfo)
     // Initialize memory management
     pmm_init(bootInfo->mmap, bootInfo->mmapSize, bootInfo->mmapDescriptorSize, bootInfo->fb);
     vmm_init(bootInfo->fb);
-    heap_init(KRN_HEAP_START, KRN_HEAP_SIZE);
+    heap_init();
     
     // Initialize filesystem
     ide_init(ATA_DEVICE);   // Initialize disk controller
-    ext2_init();            // Initialize and mount root filesystem
+    ext2_init();            // Initialize root filesystem
     
     // Initialize user-space related 
     tss_late_set();         // Add stacks to the TSS
     syscalls_init();        // Initialize syscalls
+    scheduler_init();       // Initialize required structs
     
-    void* s1=kmalloc(4096);
-    void *s2 = kmalloc(4096);
-    process_create("p1", t1, s1,4096);
-    process_create("p2",t2,s2,4096);
+    process_create("p1", t1);
+    process_create("p2", t2);
     
     __STI();
-    spawnInit();        // Start scheduling processes, should never return
-        
+    yield();                // Start executing processes
+    
     panic("Unreachable");
 }

@@ -1,11 +1,9 @@
 bits 64
 
-global x64_switch_processes
-x64_switch_processes:  ; rdi - Context_t*, rsi - cr3
+global x64_context_switch
+x64_context_switch:  ; rdi - Context_t*
     cli
-    
-    mov cr3, rsi                ; switch to process pml4
-    
+
     xor rax, rax
     mov ax, [rdi + 0x20]        ; ds
     mov ds, ax
@@ -32,7 +30,7 @@ x64_switch_processes:  ; rdi - Context_t*, rsi - cr3
     mov rdx, [rdi + 0x40]
     mov rsi, [rdi + 0x50]
     mov rbp, [rdi + 0x58]
-
+    
     mov r8, [rdi + 0x60]
     mov r9, [rdi + 0x68]
     mov r10, [rdi + 0x70]
@@ -42,5 +40,5 @@ x64_switch_processes:  ; rdi - Context_t*, rsi - cr3
     mov r14, [rdi + 0x90]
     mov r15, [rdi + 0x98]
     mov rdi, [rdi + 0x48]
-    
+        
     iretq

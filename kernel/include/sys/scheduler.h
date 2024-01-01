@@ -3,8 +3,8 @@
 #include <arch/isr.h>
 #include <sys/process.h>
 
-/// @brief Spawn the init process.
-void spawnInit();
+/// @brief Initialize the scheduler.
+void scheduler_init();
 
 /// @brief Add a process to the scheduler.
 /// @param process Process to add.
@@ -22,4 +22,3 @@ void yield();
 void yield_cs(InterruptStack_t *stack);
 
 extern Process_t *_CurrentProcess;  /* Current running process. */
-extern Process_t *_InitProcess;     /* Init process. */

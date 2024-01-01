@@ -55,6 +55,10 @@ void vmm_init(const Framebuffer_t *fb);
 /// @return New address space.
 PageTable_t *vmm_createAddressSpace();
 
+/// @brief Switch the pml4 table.
+/// @param pml4 Table to switch.
+void vmm_switchTable(PageTable_t *pml4);
+
 /// @brief Get the physical address a virtual one is mapped to.
 /// @param pml4 Table to perform the operation on.
 /// @param virt Virtual address.
@@ -80,17 +84,32 @@ void vmm_identityMapPage(PageTable_t *pml4, void *phys, const uint64_t attr);
 /// @return Physical address the page was mapped to, NULL if wasn't mapped.
 void *vmm_unmapPage(PageTable_t *pml4, void *virt);
 
+/// @brief Remove a page from the page table.
+/// @param pml4 Table to perform the operation on.
+/// @param virt Virtual address to remove from the page table.
+/// @param pages Pages to unmap.
+/// @return Physical address the page was mapped to, NULL if wasn't mapped.
+void *vmm_unmapPages(PageTable_t *pml4, void *virt, const uint64_t pages);
+
 /// @brief Allocate a virtual page and map it in the page table.
 /// @param pml4 Table to perform the operation on.
 /// @param virt Virtual address to map the page to.
 /// @param attr Attributes of the page.
 /// @return Virtual address of the page.
-void *vmm_getPage(PageTable_t *pml4, void *virt, const uint64_t attr);
+void *vmm_createPage(PageTable_t *pml4, void *virt, const uint64_t attr);
+
+/// @brief Allocate a virtual page and map it in the page table.
+/// @param pml4 Table to perform the operation on.
+/// @param virt Virtual address to map the page to.
+/// @param pages Pages to map.
+/// @param attr Attributes of the page.
+/// @return Virtual address of the page.
+void *vmm_createPages(PageTable_t *pml4, void *virt, const uint64_t pages, const uint64_t attr);
 
 /// @brief Allocate a virtual page and map it in the page table.
 /// @param pml4 Table to perform the operation on.
 /// @param attr Attributes of the page.
 /// @return Virtual address of the page.
-void *vmm_getIdentityPage(PageTable_t *pml4, const uint64_t attr);
+void *vmm_createIdentityPage(PageTable_t *pml4, const uint64_t attr);
 
 extern PageTable_t *_KernelPML4;

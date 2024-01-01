@@ -10,8 +10,7 @@
 #include <libc/string.h>
 #include <logger.h>
 
-#define FLUSH_TLB(addr)     asm volatile("invlpg (%0)" ::"r" (addr) : "memory")
-#define FLUSH_TABLE(table)  asm volatile("mov %0, %%cr3" : : "r"(table))
+#define FLUSH_TLB(addr) asm volatile("invlpg (%0)" ::"r" (addr) : "memory")
 
 #define ADDRESS_MASK    0x000FFFFFFFFFF000
 #define ATTRIBUTES_MASK 0xFFF0000000000FFF
@@ -66,6 +65,7 @@ static void pageFaultHandler(InterruptStack_t *stack)
         assert(frame);
         
         vmm_mapPage(pml4, frame, (void *)virtAddr, VMM_USER_ATTRIBUTES);
+        FLUSH_TLB(virtAddr);
     }
     else
         sys_exit(0);
@@ -85,22 +85,41 @@ void vmm_init(const Framebuffer_t *fb)
     for (uint64_t addr = 0; addr < memEnd; addr += PAGE_SIZE)
         vmm_identityMapPage(_KernelPML4, (void *)addr, VMM_USER_ATTRIBUTES);
     
+    // Map the kernel
+    uint64_t krnStart = RNDWN(_KernelStart, PAGE_SIZE);
+    uint64_t krnEnd = RNDUP(_KernelEnd, PAGE_SIZE);
+    uint64_t krnWritableStart = RNDWN(_KernelWritableStart, PAGE_SIZE);
+    uint64_t krnWritableEnd = RNDUP(_KernelWritableEnd, PAGE_SIZE);
+    for (uint64_t addr = krnStart; addr < krnEnd; addr += PAGE_SIZE)
+    {
+        if (addr >= krnWritableStart && addr <= krnWritableEnd)
+            vmm_identityMapPage(_KernelPML4, (void *)addr, VMM_USER_ATTRIBUTES);
+        else
+            vmm_identityMapPage(_KernelPML4, (void *)addr, PA_PRESENT | PA_SUPERVISOR);
+    }
+    
     // Identity map the framebuffer
-    uint64_t fbBase = (uint64_t)fb->baseAddress;
+    uint64_t fbBase = RNDWN((uint64_t)fb->baseAddress, PAGE_SIZE);
     uint64_t fbEnd = RNDUP(fbBase + fb->bufferSize, PAGE_SIZE);
     for (uint64_t addr = fbBase; addr < fbEnd; addr += PAGE_SIZE)
         vmm_identityMapPage(_KernelPML4, (void *)addr, VMM_KERNEL_ATTRIBUTES);
     
-    FLUSH_TABLE(_KernelPML4);
+    // Load the new table
+    vmm_switchTable(_KernelPML4);
 }
 
 PageTable_t *vmm_createAddressSpace()
 {
-    PageTable_t *pml4 = (PageTable_t *)pmm_getFrame();
+    PageTable_t *pml4 = vmm_createIdentityPage(_KernelPML4, VMM_USER_ATTRIBUTES);
     assert(pml4);
     memcpy(pml4, _KernelPML4, PAGE_SIZE);
-    
+        
     return pml4;
+}
+
+void vmm_switchTable(PageTable_t *pml4)
+{
+    asm volatile("mov %0, %%cr3" : : "r"(pml4));
 }
 
 void *virt2phys(PageTable_t *pml4, void *virt)
@@ -156,8 +175,6 @@ void vmm_mapPage(PageTable_t *pml4, void *phys, void *virt, const uint64_t attr)
     
     uint64_t ptIndex = (uvirt >> 12) & 0x1FF;
     setEntry(&pt->entries[ptIndex], uphys >> 12, attr);
-    
-    FLUSH_TLB(virt);
 }
 
 void vmm_identityMapPage(PageTable_t *pml4, void *phys, const uint64_t attr)
@@ -194,22 +211,50 @@ void *vmm_unmapPage(PageTable_t *pml4, void *virt)
     return phys;
 }
 
-void *vmm_getPage(PageTable_t *pml4, void *virt, const uint64_t attr)
+void *vmm_unmapPages(PageTable_t *pml4, void *virt, const uint64_t pages)
+{
+    void *p1 = vmm_unmapPage(pml4, virt);
+    if (!p1)
+        return p1;
+
+    for (uint64_t i = 1; i < pages; i++)
+        vmm_unmapPage(pml4, (void *)((uint64_t)virt + i * PAGE_SIZE));
+    
+    return p1;
+}
+
+void *vmm_createPage(PageTable_t *pml4, void *virt, const uint64_t attr)
 {
     void *frame = pmm_getFrame();
     if (!frame)
         return NULL;
 
     vmm_mapPage(pml4, frame, virt, attr);
+    FLUSH_TLB(virt);
+    
     return frame;
 }
 
-void *vmm_getIdentityPage(PageTable_t *pml4, const uint64_t attr)
+void *vmm_createPages(PageTable_t *pml4, void *virt, const uint64_t pages, const uint64_t attr)
+{
+    void *f1 = vmm_createPage(pml4, virt, attr);
+    if (!f1)
+        return f1;
+    
+    for (uint64_t i = 1; i < pages; i++)
+        vmm_createPage(pml4, (void *)((uint64_t)virt + i * PAGE_SIZE), attr);
+
+    return f1;
+}
+
+void *vmm_createIdentityPage(PageTable_t *pml4, const uint64_t attr)
 {
     void *frame = pmm_getFrame();
     if (!frame)
         return NULL;
     
     vmm_identityMapPage(pml4, frame, attr);
+    FLUSH_TLB(frame);
+    
     return frame;
 }

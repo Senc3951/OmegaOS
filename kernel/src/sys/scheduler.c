@@ -1,54 +1,57 @@
 #include <sys/scheduler.h>
 #include <mem/heap.h>
+#include <misc/queue.h>
 #include <io/io.h>
 #include <assert.h>
-#include <libc/string.h>
 
-#define SWITCH_PROCESS(process) ({                          \
-    process->status = PROCESS_STATUS_RUNNING;               \
-    x64_switch_processes(&process->ctx, process->ctx.cr3);  \
+#define SWITCH_PROCESS(process) ({      \
+    process->status = PROCESS_RUNNING;  \
+    vmm_switchTable(process->pml4);     \
+    x64_context_switch(&process->ctx);  \
 })
 
-extern void x64_switch_processes(Context_t *ctx, uint64_t cr3);
+extern void x64_context_switch(Context_t *ctx);
 
-Process_t *_CurrentProcess = NULL, *_InitProcess = NULL;
+Process_t *_CurrentProcess = NULL;
 
-static Process_t *g_processes[MAX_PROCESS_COUNT];
-static int g_processCount = 0, g_processIndex = 0;
-static int g_nextID = ROOT_PID;
+static Queue_t *g_readyQueue = NULL;
+
+static int getNextID()
+{
+    static int id = ROOT_PID;
+    return id++;
+}
 
 static Process_t *getNextProcess()
 {
-    Process_t *curr;
-    do
+    Process_t *next = queue_deqeueue(g_readyQueue);
+    if (next->id == ROOT_PID && g_readyQueue->count >= 1)
     {
-        if (g_processIndex >= g_processCount)
-            g_processIndex = 0;
-        
-        curr = g_processes[g_processIndex++];
-        if (curr->status == PROCESS_STATUS_PENDING)
-            return curr;
-    } while (true);
+        queue_enqueue(g_readyQueue, next);
+        return queue_deqeueue(g_readyQueue);
+    }
+    
+    return next;
 }
 
-void spawnInit()
-{    
-    _CurrentProcess = _InitProcess = process_createInit();
-    _InitProcess->id = ROOT_PID;
-    
-    SWITCH_PROCESS(_InitProcess);
+void scheduler_init()
+{
+    assert(g_readyQueue = queue_create());
+    _CurrentProcess = process_createInit();
 }
 
 void scheduler_add(Process_t *process)
 {
-    process->id = ++g_nextID;
-    g_processes[g_processCount++] = process;
+    process->id = getNextID();
+    process->status = PROCESS_PENDING;
+    
+    queue_enqueue(g_readyQueue, process);
 }
 
 void scheduler_remove(Process_t *process)
 {
-    assert(process->status != PROCESS_STATUS_STOPPED);
-    process->status = PROCESS_STATUS_STOPPED;
+    assert(process->id != ROOT_PID);
+    queue_remove(g_readyQueue, process);
 }
 
 void yield()
@@ -59,8 +62,7 @@ void yield()
 
 void yield_cs(InterruptStack_t *stack)
 {
-    assert(_CurrentProcess->status == PROCESS_STATUS_RUNNING);
-
+    assert(_CurrentProcess->status == PROCESS_RUNNING);
     _CurrentProcess->ctx.rip = stack->rip;
     _CurrentProcess->ctx.cs = stack->cs;
     _CurrentProcess->ctx.rsp = stack->rsp;
@@ -80,8 +82,9 @@ void yield_cs(InterruptStack_t *stack)
     _CurrentProcess->ctx.r12 = stack->r12;
     _CurrentProcess->ctx.r13 = stack->r13;
     _CurrentProcess->ctx.r14 = stack->r14;
-    _CurrentProcess->ctx.r15 = stack->r15;
+    _CurrentProcess->ctx.r15 = stack->r15;   
+    _CurrentProcess->status = PROCESS_PENDING;
     
-    _CurrentProcess->status = PROCESS_STATUS_PENDING;
+    queue_enqueue(g_readyQueue, _CurrentProcess);
     yield();
 }

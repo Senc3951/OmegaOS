@@ -5,7 +5,7 @@ ENTRY(_entry)
 SECTIONS
 {
     . = 2M;
-    _krnStart = .;
+    _kernel_start = .;
 
     .text BLOCK(4K) : ALIGN(4K)
     {
@@ -17,6 +17,7 @@ SECTIONS
         *(.rodata)
     }
     
+    _kernel_writable_start = .;
     .data BLOCK(4K) : ALIGN(4K)
     {
         *(.data)
@@ -27,12 +28,13 @@ SECTIONS
         *(COMMON)
         *(.bss)
     }
-
+    _kernel_writable_end = .;
+    
     /DISCARD/ :
     {
         *(.eh_frame)
         *(.note)
     }
     
-    _krnEnd = .;
+    _kernel_end = .;
 }

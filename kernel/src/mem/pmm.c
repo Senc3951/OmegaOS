@@ -129,12 +129,9 @@ void pmm_init(MemoryDescriptor_t *mmap, const uint64_t mmapSize, const uint64_t 
 
     // Reserve framebuffer
     pmm_reserveRegion((uint64_t)fb->baseAddress, fb->bufferSize / PAGE_SIZE);
-
-    // Reserve kernel
-    pmm_reserveRegion(_KernelStart, (_KernelEnd - _KernelStart) / PAGE_SIZE);
     
-    // Reserve memory from start to kernel
-    pmm_reserveRegion(0, _KernelStart / PAGE_SIZE);
+    // Reserve kernel
+    pmm_reserveRegion(0, _KernelEnd / PAGE_SIZE + 1);
 }
 
 void *pmm_getFrame()

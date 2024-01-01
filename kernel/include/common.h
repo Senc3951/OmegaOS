@@ -8,7 +8,7 @@
 
 typedef long ssize_t;
 
-extern uint64_t _KernelStart, _KernelEnd;
+extern uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd;
 
 #define _KB                     1024ULL
 #define _MB                     (_KB * 1024)
@@ -23,9 +23,11 @@ extern uint64_t _KernelStart, _KernelEnd;
 
 #define PAGE_SIZE               4096
 
-#define KRN_HEAP_START          (_KernelEnd + 4 * _MB)
-#define KRN_HEAP_SIZE           (4 * _MB)
+#define KERNEL_HEAP_START       0xFFFFFFFF80000000
+#define KERNEL_HEAP_END         (KERNEL_HEAP_START + 4 * _MB)
 #define KERNEL_STACK_SIZE       (8 * _KB)
+#define USER_STACK_START        0x00007FFFFFFFF000
+#define USER_STACK_SIZE         (4 * _KB)
 
 #define RNDUP(num, nm)  ((num) < nm ? nm : (((num) / nm) * nm))
 #define RNDWN(num, nm)  ((((num) + nm - 1) / nm) * nm)
@@ -34,4 +36,6 @@ extern uint64_t _KernelStart, _KernelEnd;
 
 #define __PACKED__      __attribute__((packed))
 #define __NO_RETURN__   __attribute__((noreturn))
+#define __PURE__        __attribute__((pure))
+#define __MALLOC__      __attribute__((malloc))
 #define __ALIGNED__(n)  __attribute__((aligned(n)))

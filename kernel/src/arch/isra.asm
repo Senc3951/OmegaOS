@@ -2,7 +2,7 @@ bits 64
 
 KERNEL_DS equ 0x10
 
-extern isr_interrupt_handler, _KernelDS, _KernelPML4
+extern isr_interrupt_handler
 global interruptHandlers
 
 %macro ISR_EXCEPTION 2
@@ -57,11 +57,7 @@ global interruptHandlers
 isr_common:
     cld
     pushaq
-    
-    ; switch to kernel pml4
-    mov rax, [_KernelPML4]
-    mov cr3, rax
-
+        
     xor rax, rax
     mov ax, ds
     push rax
