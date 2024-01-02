@@ -12,7 +12,9 @@ x86_64 UEFI-based operating system built from scratch.
 - [x] Filesystem (ext2)
 - [x] Process management
 - [x] User space
+- [x] APIC
 - [ ] SMP
+- [ ] ACPI
 - [ ] USB
 - [ ] Network
 

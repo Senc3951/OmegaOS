@@ -24,7 +24,7 @@ void queue_enqueue(Queue_t *q, void *data)
     else
     {
         q->rear->next = tmp;
-        q->rear = q->rear->next;
+        q->rear = tmp;
     }
     
     q->count++;
@@ -34,7 +34,9 @@ void *queue_deqeueue(Queue_t *q)
 {
     QueueNode_t *tmp = q->front;
     q->front = q->front->next;
-
+    if (!q->front)
+        q->front = q->rear = NULL;
+    
     void *ret = tmp->data;
     kfree(tmp);
     q->count--;

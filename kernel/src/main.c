@@ -4,6 +4,11 @@
 #include <assert.h>
 #include <panic.h>
 #include <gui/screen.h>
+#include <arch/cpu.h>
+#include <arch/rsdp.h>
+#include <arch/apic/madt.h>
+#include <arch/apic/apic.h>
+#include <arch/apic/ioapic.h>
 #include <arch/gdt.h>
 #include <arch/idt.h>
 #include <arch/pic.h>
@@ -20,13 +25,10 @@
 extern uint64_t _kernel_start, _kernel_end, _kernel_writable_start, _kernel_writable_end;
 uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd;
 
-extern void t1();
-extern void t2();
-
 extern int _entry(BootInfo_t *bootInfo)
 {
     __CLI();
-    eassert(bootInfo && bootInfo->fb && bootInfo->font && bootInfo->mmap);
+    eassert(bootInfo && bootInfo->fb && bootInfo->font && bootInfo->mmap && bootInfo->rsdp);
     eassert(serial_init());
     
     _KernelStart = (uint64_t)&_kernel_start;
@@ -34,21 +36,30 @@ extern int _entry(BootInfo_t *bootInfo)
     _KernelWritableStart = (uint64_t)&_kernel_writable_start;
     _KernelWritableEnd = (uint64_t)&_kernel_writable_end;
     LOG("Kernel resides at: %p - %p. Writable: %p - %p\n", _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd);
+        
+    // Get information about the CPU
+    cpu_init();
     
     // Initialize screen
     screen_init(bootInfo->fb, bootInfo->font);
     
-    // Initialize interrupts
+    // Initialize memory management
+    pmm_init(bootInfo->mmap, bootInfo->mmapSize, bootInfo->mmapDescriptorSize, bootInfo->fb);
+    vmm_init(bootInfo->fb);
+    heap_init();
+    
+    // Initialize system related & interrupts
+    rsdp_init(bootInfo->rsdp);
     gdt_load();
     idt_load();
     isr_init();
     pic_init(IRQ0, IRQ0 + 8, false);
     pit_init(PIT_DEFAULT_FREQUENCY);
     
-    // Initialize memory management
-    pmm_init(bootInfo->mmap, bootInfo->mmapSize, bootInfo->mmapDescriptorSize, bootInfo->fb);
-    vmm_init(bootInfo->fb);
-    heap_init();
+    // Initialize APIC & IO APIC
+    madt_init();
+    apic_init();
+    ioapic_init();
     
     // Initialize filesystem
     ide_init(ATA_DEVICE);   // Initialize disk controller
@@ -60,11 +71,8 @@ extern int _entry(BootInfo_t *bootInfo)
     Process_t *init = process_init();   // Initialize process related structs and init process
     scheduler_init(init);               // Initialize required scheduling structs
     
-    process_create("p1", t1);
-    process_create("p2", t2);
-    
     __STI();
-    yield();                // Start executing processes
+    yield();                            // Start executing processes
     
     panic("Unreachable");
 }
