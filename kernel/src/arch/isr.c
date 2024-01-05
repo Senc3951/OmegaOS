@@ -52,7 +52,10 @@ extern void isr_interrupt_handler(InterruptStack_t *stack)
         g_handlers[intNum](stack);
     }
     else if (USER_INTERRUPT(stack))
+    {
+        LOG("%p\n",stack->errorCode);
         sys_exit(0);
+    }
     else
         ipanic(stack, "Unhandled interrupt");
 }

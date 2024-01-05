@@ -7,12 +7,19 @@ enum PageAttributes
     PA_PRESENT          = 1ULL << 0,
     PA_READ_WRITE       = 1ULL << 1,
     PA_SUPERVISOR       = 1ULL << 2,
-    PA_WRITE_THROUGH    = 1ULL << 3,
-    PA_CACHE_DISABLED   = 1ULL << 4,
-    PA_PAGE_SIZE        = 1ULL << 7,
+    PA_PWT              = 1ULL << 3,
+    PA_PCD              = 1ULL << 4,
+    PA_PAT              = 1ULL << 7,
     PA_GLOBAL           = 1ULL << 8,
     PA_EXECUTE_DISABLED = 1ULL << 63
 };
+
+#define PA_UNCACHEABLE      (0) /* All accesses are uncacheable. WC is not allowed. */
+#define PA_WRITE_COMBINING  (PA_PWT)    /* All access are uncacheable. WC is allowed. */
+#define PA_WRITE_THROUGH    (PA_PAT)
+#define PA_WRITE_PROTECT    (PA_PAT | PA_PWT)
+#define PA_WRITE_BACK       (PA_PAT | PA_PCD)
+#define PA_UNCACHED         (PA_PAT | PA_PCD | PA_PWT)
 
 #define ENTRIES_PER_PAGE_TABLE  512
 #define VMM_KERNEL_ATTRIBUTES   (PA_PRESENT | PA_READ_WRITE)
@@ -31,7 +38,7 @@ typedef union PAGE_TABLE_ENTRY
         uint64_t cacheDisabled  : 1;
         uint64_t accessed       : 1;
         uint64_t dirty          : 1;
-        uint64_t pageSize       : 1;
+        uint64_t pat            : 1;
         uint64_t global         : 1;
         uint64_t avl1           : 3;
         uint64_t address        : 40;
@@ -51,9 +58,15 @@ typedef struct PAGE_TABLE
 /// @param fb Framebuffer.
 void vmm_init(const Framebuffer_t *fb);
 
+/// @brief Destroy an address space.
+/// @param parent Parent page table.
+/// @param pml4 Page table to destroy.
+void vmm_destroyAddressSpace(PageTable_t *parent, PageTable_t *pml4);
+
 /// @brief Create a new address space.
+/// @param parent Parent page table.
 /// @return New address space.
-PageTable_t *vmm_createAddressSpace();
+PageTable_t *vmm_createAddressSpace(PageTable_t *parent);
 
 /// @brief Switch the pml4 table.
 /// @param pml4 Table to switch.

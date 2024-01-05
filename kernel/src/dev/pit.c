@@ -27,7 +27,7 @@ static void interruptHandler(InterruptStack_t *stack)
 
 void pit_init(const uint16_t frequency)
 {
-    assert(isr_registerHandler(IRQ0, interruptHandler));
+    assert(isr_registerHandler(IRQ_PIT, interruptHandler));
     
     uint16_t freq = 0x1234DE / frequency;
     if ((0x1234DE % frequency) > (frequency / 2))
@@ -41,7 +41,9 @@ void pit_init(const uint16_t frequency)
     outb(PIT_CHANNEL_0, freq & 0xFF);               // Low byte
     __IO_WAIT();
     outb(PIT_CHANNEL_0, (freq & 0xFF00) >> 8);      // High byte
-    __IO_WAIT();    
+    __IO_WAIT();
+    
+    LOG("PIT initialized\n");
 }
 
 void sleep(const size_t milliseconds)

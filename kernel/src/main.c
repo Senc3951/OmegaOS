@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <panic.h>
 #include <gui/screen.h>
-#include <arch/cpu.h>
 #include <arch/rsdp.h>
 #include <arch/apic/madt.h>
 #include <arch/apic/apic.h>
@@ -16,6 +15,7 @@
 #include <mem/vmm.h>
 #include <mem/heap.h>
 #include <dev/pit.h>
+#include <dev/ps2/kbd.h>
 #include <dev/storage/ide.h>
 #include <fs/ext2.h>
 #include <sys/syscalls.h>
@@ -24,6 +24,12 @@
 
 extern uint64_t _kernel_start, _kernel_end, _kernel_writable_start, _kernel_writable_end;
 uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd;
+
+static void dev_init()
+{
+    pit_init(PIT_DEFAULT_FREQUENCY);
+    ps2_kbd_init();
+}
 
 extern int _entry(BootInfo_t *bootInfo)
 {
@@ -36,9 +42,6 @@ extern int _entry(BootInfo_t *bootInfo)
     _KernelWritableStart = (uint64_t)&_kernel_writable_start;
     _KernelWritableEnd = (uint64_t)&_kernel_writable_end;
     LOG("Kernel resides at: %p - %p. Writable: %p - %p\n", _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd);
-        
-    // Get information about the CPU
-    cpu_init();
     
     // Initialize screen
     screen_init(bootInfo->fb, bootInfo->font);
@@ -54,25 +57,26 @@ extern int _entry(BootInfo_t *bootInfo)
     idt_load();
     isr_init();
     pic_init(IRQ0, IRQ0 + 8, false);
-    pit_init(PIT_DEFAULT_FREQUENCY);
+    
+    dev_init(); // Initialize devices
+
+    // Initialize filesystem
+    ide_init(ATA_DEVICE);   // Initialize disk controller
+    ext2_init();            // Initialize root filesystem
     
     // Initialize APIC & IO APIC
     madt_init();
     apic_init();
     ioapic_init();
     
-    // Initialize filesystem
-    ide_init(ATA_DEVICE);   // Initialize disk controller
-    ext2_init();            // Initialize root filesystem
-    
     // Initialize user-space related 
-    tss_late_set();                     // Add stacks to the TSS
-    syscalls_init();                    // Initialize syscalls
-    Process_t *init = process_init();   // Initialize process related structs and init process
-    scheduler_init(init);               // Initialize required scheduling structs
+    tss_late_set();     // Add stacks to the TSS
+    syscalls_init();    // Initialize syscalls
+    process_init();     // Initialize process related structs and init process
+    scheduler_init();   // Initialize required scheduling structs
     
     __STI();
-    yield();                            // Start executing processes
+    yield();            // Start executing processes
     
     panic("Unreachable");
 }

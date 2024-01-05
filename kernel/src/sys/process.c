@@ -10,24 +10,17 @@
 #define USER_RFLAGS 0x202
 
 #define INIT_PROCESS_NAME   "init"
-#define INIT_STACK_SIZE     (1 * _KB)
+#define INIT_STACK_SIZE     PAGE_SIZE
 
 static Tree_t *g_processTree = NULL;
 
-extern void x64_init_proccess();
-
-Process_t *process_init()
+static void init()
 {
-    assert(g_processTree = tree_create());
-    Process_t *init = process_createInit();
-    
-    tree_set_root(g_processTree, init);
-    init->treeNode = g_processTree->root;
-
-    return init;
+    while (1)
+        __HALT();
 }
 
-Process_t *createProcess(const char *name, PageTable_t *addressSpace, void *entry, uint64_t stackSize, const uint64_t cs, const uint64_t ds)
+static Process_t *createProcess(const char *name, PageTable_t *addressSpace, void *entry, uint64_t stackSize, const uint64_t cs, const uint64_t ds)
 {    
     Process_t *process = (Process_t *)kmalloc(sizeof(Process_t));
     assert(process && addressSpace);
@@ -47,17 +40,23 @@ Process_t *createProcess(const char *name, PageTable_t *addressSpace, void *entr
     return process;
 }
 
-Process_t *process_createInit()
+Process_t *process_init()
 {
-    PageTable_t *pml4 = vmm_createAddressSpace();
+    assert(g_processTree = tree_create());
+
+    PageTable_t *pml4 = vmm_createAddressSpace(_KernelPML4);
     vmm_createPages(pml4, (void *)USER_STACK_START, INIT_STACK_SIZE / PAGE_SIZE, VMM_USER_ATTRIBUTES);
+    _InitProcess = createProcess(INIT_PROCESS_NAME, pml4, init, INIT_STACK_SIZE, GDT_KERNEL_CS, GDT_KERNEL_DS);
     
-    return createProcess(INIT_PROCESS_NAME, pml4, x64_init_proccess, INIT_STACK_SIZE, GDT_KERNEL_CS, GDT_KERNEL_DS);
+    tree_set_root(g_processTree, init);
+    _InitProcess->treeNode = g_processTree->root;
+    
+    return _InitProcess;
 }
 
 Process_t *process_create(const char *name, void *entry)
 {
-    PageTable_t *pml4 = vmm_createAddressSpace();
+    PageTable_t *pml4 = vmm_createAddressSpace(_InitProcess->pml4);
     vmm_createPages(pml4, (void *)USER_STACK_START, USER_STACK_SIZE / PAGE_SIZE, VMM_USER_ATTRIBUTES);
     
     Process_t *proc = createProcess(name, pml4, entry, USER_STACK_SIZE, GDT_USER_CS, GDT_USER_DS);
@@ -70,10 +69,12 @@ Process_t *process_create(const char *name, void *entry)
 
 void process_delete(Process_t *process)
 {
-    assert(process->treeNode);
-    tree_remove(g_processTree, process->treeNode);
+    Process_t *parentProccess = (Process_t *)(process->parent_proc);
+    assert(process->treeNode && parentProccess && parentProccess->pml4);
     
-    vmm_unmapPages(process->pml4, (void *)(process->ctx.stackButtom), process->ctx.stackSize / PAGE_SIZE);
-    vmm_unmapPage(_KernelPML4, process->pml4);
+    vmm_switchTable(parentProccess->pml4);
+    vmm_destroyAddressSpace(parentProccess->pml4, process->pml4);
+    
+    tree_remove(g_processTree, process->treeNode);
     kfree(process);
 }

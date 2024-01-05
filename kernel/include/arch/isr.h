@@ -41,6 +41,12 @@ enum INTERRUPT_LIST
     SecurityError,
 };
 
+enum IRQ_INTERRUPT_LIST
+{
+    IRQ_PIT         = 32 + 0,
+    IRQ_KEYBOARD    = 32 + 1
+};
+
 typedef void (*ISRHandler)(InterruptStack_t *stack);
 
 /// @brief Initialize the ISR routines.

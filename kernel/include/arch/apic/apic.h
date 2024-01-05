@@ -4,6 +4,8 @@
 
 enum
 {
+    LAPIC_ID_REGISTER               = 0x20,
+    LAPIC_TASK_PRIORITY_REGISTER    = 0x80,
     LAPIC_REG_EOI                   = 0xB0,
     LAPIC_REG_SPURIOUS_IV           = 0xF0,
     LAPIC_REG_INTERRUPT_COMMAND     = 0x300

@@ -1,6 +1,6 @@
 include config.mk
 
-.PHONY: run debug build kernel initrd setup clean
+.PHONY: run debug build kernel rootfs setup clean
 
 run: $(OUTPUT_OS_FILE)
 	@echo "\n========== Running $< =========="
@@ -26,16 +26,11 @@ kernel:
 	@echo "========== Building Kernel =========="
 	@$(MAKE) -C $(KERNEL_DIR) build
 
-initrd:
-	dd if=/dev/zero of=$(INITRD_FILE) bs=1MiB count=64
-	mkfs.ext2 -b 1024 $(INITRD_FILE)
+rootfs:
+	dd if=/dev/zero of=$(ROOTFS_FILE) bs=1MiB count=64
+	mkfs.ext2 -b 1024 $(ROOTFS_FILE)
 	mkdir -p tmp
-	sudo mount -o loop $(INITRD_FILE) tmp
-	cp .gitignore tmp
-	cp README.md tmp
-	mkdir tmp/empty
-	mkdir tmp/notempty
-	cp startup.nsh tmp/notempty
+	sudo mount -o loop $(ROOTFS_FILE) tmp
 	sudo umount tmp
 	rm -rf tmp
 

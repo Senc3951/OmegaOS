@@ -12,7 +12,7 @@
 
 extern void x64_context_switch(Context_t *ctx);
 
-Process_t *_CurrentProcess = NULL;
+Process_t *_CurrentProcess = NULL, *_InitProcess = NULL;
 
 static Queue_t *g_readyQueue = NULL;
 
@@ -34,12 +34,13 @@ static Process_t *getNextProcess()
     return next;
 }
 
-void scheduler_init(Process_t *init)
+void scheduler_init()
 {
+    assert(_InitProcess);
     assert(g_readyQueue = queue_create());
     
-    _CurrentProcess = init;
-    scheduler_add(init);
+    _CurrentProcess = _InitProcess;
+    scheduler_add(_InitProcess);
 }
 
 void scheduler_add(Process_t *process)

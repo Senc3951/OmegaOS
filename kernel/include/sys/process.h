@@ -32,15 +32,12 @@ typedef struct PROCESS
     TreeNode_t *treeNode;
     char name[MAX_PROCESS_NAME];
     char cwd[FS_MAX_PATH];
+#define parent_proc treeNode->parent->value
 } Process_t;
 
 /// @brief Initialize processes.
 /// @return Init process.
 Process_t *process_init();
-
-/// @brief Create the init process.
-/// @return Init process.
-Process_t *process_createInit();
 
 /// @brief Create a process.
 /// @param name Name of the process.

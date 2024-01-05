@@ -13,7 +13,7 @@
 #define FLUSH_TLB(addr) asm volatile("invlpg (%0)" ::"r" (addr) : "memory")
 
 #define ADDRESS_MASK    0x000FFFFFFFFFF000
-#define ATTRIBUTES_MASK 0xFFF0000000000FFF
+#define ATTRIBUTES_MASK (~ADDRESS_MASK)
 
 enum PageFaultReason
 {
@@ -73,6 +73,10 @@ static void pageFaultHandler(InterruptStack_t *stack)
 
 void vmm_init(const Framebuffer_t *fb)
 {
+    // Enable PAT
+    uint64_t pat = PA_WRITE_BACK | (PA_UNCACHEABLE << 8) | (PA_WRITE_COMBINING << 16);
+    __wrmsr(0x277, (uint32_t)pat, (uint32_t)(pat >> 32));
+    
     assert(isr_registerHandler(PageFault, pageFaultHandler));
     
     // Create the PML4 table.
@@ -83,7 +87,7 @@ void vmm_init(const Framebuffer_t *fb)
     // Identity map entire memory
     uint64_t memEnd = RNDUP(pmm_getMemorySize(), PAGE_SIZE);
     for (uint64_t addr = 0; addr < memEnd; addr += PAGE_SIZE)
-        vmm_identityMapPage(_KernelPML4, (void *)addr, VMM_USER_ATTRIBUTES);
+        vmm_identityMapPage(_KernelPML4, (void *)addr, VMM_KERNEL_ATTRIBUTES);
     
     // Map the kernel
     uint64_t krnStart = RNDWN(_KernelStart, PAGE_SIZE);
@@ -108,12 +112,52 @@ void vmm_init(const Framebuffer_t *fb)
     vmm_switchTable(_KernelPML4);
 }
 
-PageTable_t *vmm_createAddressSpace()
+void vmm_destroyAddressSpace(PageTable_t *parent, PageTable_t *pml4)
 {
-    PageTable_t *pml4 = vmm_createIdentityPage(_KernelPML4, VMM_USER_ATTRIBUTES);
-    assert(pml4);
-    memcpy(pml4, _KernelPML4, PAGE_SIZE);
+    uint16_t i, j, k, m;
+    PageTableEntry_t *entry;
+    PageTable_t *pdp, *pd, *pt;
+    for (i = 0; i < ENTRIES_PER_PAGE_TABLE; i++)
+    {
+        if (!pml4->entries[i].present)
+            continue;
         
+        pdp = (PageTable_t *)(pml4->entries[i].attr.address << 12);
+        for (j = 0; j < ENTRIES_PER_PAGE_TABLE; j++)
+        {
+            if (!pdp->entries[j].present)
+                continue;
+            
+            pd = (PageTable_t *)(pdp->entries[j].attr.address << 12);
+            for (k = 0; k < ENTRIES_PER_PAGE_TABLE; k++)
+            {
+                if (!pd->entries[k].present)
+                    continue;
+                
+                pt = (PageTable_t *)(pd->entries[k].attr.address << 12);
+                for (m = 0; m < ENTRIES_PER_PAGE_TABLE; m++)
+                {
+                    entry = &pt->entries[m];
+                    if (!entry->present)
+                        continue;
+                    
+                    void *addr = (void *)(entry->attr.address << 12);
+                    pmm_releaseFrame(addr);
+                }
+            }
+        }   
+    }
+    
+    vmm_unmapPage(parent, pml4);
+    memset(pml4, 0, PAGE_SIZE);
+}
+
+PageTable_t *vmm_createAddressSpace(PageTable_t *parent)
+{
+    PageTable_t *pml4 = vmm_createIdentityPage(parent, VMM_USER_ATTRIBUTES);
+    assert(pml4);
+    memcpy(pml4, parent, PAGE_SIZE);
+    
     return pml4;
 }
 

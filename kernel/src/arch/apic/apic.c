@@ -4,9 +4,11 @@
 #include <assert.h>
 #include <logger.h>
 
+#define IA32_APIC_BASE_MSR  0x1B
+#define CPUID_FEAT_EDX_APIC 512
+
 static void setBase(uint64_t base)
 {
-    const uint32_t IA32_APIC_BASE_MSR = 0x1B;
     const uint32_t IA32_APIC_BASE_MSR_ENABLE = 0x800;
     
     uint32_t edx = 0;
@@ -37,9 +39,15 @@ void apic_send_eoi()
 void apic_init()
 {
     uint32_t unused, edx;
-    __cpuid(1, &unused, &unused, &unused, &edx);
-    assert(edx & CPUID_FEAT_EDX_APIC);
-    
+    assert(__get_cpuid(1, &unused, &unused, &unused, &edx) && (edx & CPUID_FEAT_EDX_APIC));
+        
+    // Hardware enable the APIC
+    LOG("Local APIC: %p\n", _MADT.lapic);
     setBase(_MADT.lapic);
+    
+    // Clear the task priority register
+    apic_write_register(LAPIC_TASK_PRIORITY_REGISTER, 0);
+        
+    // Enable spurious interrupt vector
     apic_write_register(LAPIC_REG_SPURIOUS_IV, apic_read_register(LAPIC_REG_SPURIOUS_IV) | 0x100);
 }

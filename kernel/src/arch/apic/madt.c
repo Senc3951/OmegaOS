@@ -1,7 +1,6 @@
 #include <arch/apic/madt.h>
 #include <arch/rsdp.h>
 #include <mem/vmm.h>
-#include <logger.h>
 #include <assert.h>
 
 typedef struct MADT
@@ -29,7 +28,7 @@ void madt_init()
     for (ptr += 44; ptr < end; ptr += ptr[1])
     {
         switch (ptr[0])
-        {
+        {       
             case MADT_PROCESSOR_LAPIC:
                 if (ptr[4] & 1 || ptr[4] & 2)
                     _MADT.coreIDs[_MADT.coreCount++] = ptr[3];
@@ -39,9 +38,7 @@ void madt_init()
                 IOAPIC_t ioapic = { .id = ptr[2], .address = (uint64_t)(ptr + 4), .gsib = (uint64_t)(ptr + 8) };
                 _MADT.ioapics[_MADT.ioApicCount++] = ioapic;
                 
-                LOG("IOAPIC ID: %d. IOAPIC: %p, Global System Interrupt Base: %p\n", ioapic.id, ioapic.address, ioapic.gsib);
                 vmm_identityMapPage(_KernelPML4, (void *)RNDWN(ioapic.address, PAGE_SIZE), VMM_KERNEL_ATTRIBUTES);
-                
                 break;
             case MADT_LAPIC_OVERRIDE:
                 _MADT.lapic = (uint64_t)(ptr + 4);
@@ -50,5 +47,4 @@ void madt_init()
     }
     
     vmm_identityMapPage(_KernelPML4, (void *)(RNDWN(_MADT.lapic, PAGE_SIZE)), VMM_KERNEL_ATTRIBUTES);
-    LOG("Processors: %u. LAPIC: %p\n", _MADT.coreCount, _MADT.lapic);
 }
