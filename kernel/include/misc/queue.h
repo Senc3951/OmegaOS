@@ -1,6 +1,7 @@
 #pragma once
 
 #include <common.h>
+#include <arch/spinlock.h>
 
 typedef struct QUEUE_NODE
 {
@@ -12,6 +13,7 @@ typedef struct QUEUE
 {
     QueueNode_t *front, *rear;
     size_t count;
+    __ALIGNED__(sizeof(lock_t)) lock_t lock;
 } Queue_t;
 
 Queue_t *queue_create();

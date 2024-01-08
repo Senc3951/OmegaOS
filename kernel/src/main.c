@@ -26,8 +26,6 @@
 extern uint64_t _kernel_start, _kernel_end, _kernel_writable_start, _kernel_writable_end;
 uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd;
 
-extern void x64_enable_cpu_features();
-
 static void dev_init()
 {
     pit_init(PIT_DEFAULT_FREQUENCY);
@@ -40,8 +38,7 @@ int _entry(BootInfo_t *bootInfo)
     eassert(bootInfo && bootInfo->fb && bootInfo->font && bootInfo->mmap && bootInfo->rsdp);
     eassert(serial_init());
     
-    // Enable basic cpu features such as SSE
-    x64_enable_cpu_features();
+    core_init(NULL);
 
     _KernelStart = (uint64_t)&_kernel_start;
     _KernelEnd = (uint64_t)&_kernel_end;
@@ -91,10 +88,9 @@ int _entry(BootInfo_t *bootInfo)
 
 int ap_entry(CoreContext_t *context)
 {
-    LOG("[AP] Core %u initialized. Stack: %p\n", context->lapicID, context->kernelStack);
+    LOG("[AP] Core %u initialized. Stack: %p - %p\n", context->lapicID, context->kernelStack - context->kernelStackSize, context->kernelStack);
     
-    x64_enable_cpu_features();
-    // initialize apic, io apic, tss
+    core_init(context);
     // start scheduling
     
     while (1) __HALT();

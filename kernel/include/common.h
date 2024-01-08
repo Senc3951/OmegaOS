@@ -24,6 +24,7 @@ extern uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableE
 #define PAGE_SIZE               4096
 
 #define AP_TRAMPOLINE           0x8000
+#define AP_STACK_SIZE           (8 * PAGE_SIZE)
 
 #define KERNEL_HEAP_START       0xFFFFFFFF80000000
 #define KERNEL_HEAP_END         (KERNEL_HEAP_START + 4 * _MB)

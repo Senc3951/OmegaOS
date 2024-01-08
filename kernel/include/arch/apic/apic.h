@@ -16,6 +16,9 @@ enum
 /// @brief Initialize the APIC.
 void apic_init();
 
+/// @brief Initialize the APIC for AP core.
+void apic_ap_init();
+
 /// @brief Read a register of the local apic.
 /// @param offset Offset of the register.
 /// @return Value of the register.

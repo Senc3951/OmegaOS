@@ -53,6 +53,7 @@ typedef struct CORE_CONTEXT
 {
     uint8_t lapicID;
     uint64_t kernelStack;
+    uint64_t kernelStackSize;
     uint64_t gdt;
 } __PACKED__ CoreContext_t;
 
@@ -67,5 +68,9 @@ void __rdmsr(uint32_t msr, uint32_t *lo, uint32_t *hi);
 /// @param lo low part.
 /// @param hi high part.
 void __wrmsr(uint32_t msr, uint32_t lo, uint32_t hi);
+
+/// @brief Initialize the current core.
+/// @param context Context of the current core, NULL for bsp.
+void core_init(CoreContext_t *context);
 
 extern CoreContext_t *_CoreContexts;

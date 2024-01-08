@@ -33,6 +33,18 @@
 
 CoreContext_t *_CoreContexts = NULL;
 
+void *createStack(uint64_t size)
+{
+    void *stackStart = vmm_createIdentityPage(_KernelPML4, VMM_KERNEL_ATTRIBUTES);
+    if (!stackStart)
+        return NULL;
+    void *apStack = vmm_createPages(_KernelPML4, (void *)((uint64_t)stackStart + PAGE_SIZE), size / PAGE_SIZE - 1, VMM_KERNEL_ATTRIBUTES);
+    if (!apStack)
+        return NULL;
+    
+    return stackStart;
+}
+
 void smp_init()
 {
     assert(_CoreContexts = pmm_getFrame());
@@ -103,11 +115,14 @@ void smp_init()
         
         WAIT_FOR_CORE(i, apicCore);   // Verify the core started running
         
-        // Setup core information
-        void *apStack = vmm_createIdentityPage(_KernelPML4, VMM_KERNEL_ATTRIBUTES);
-        assert(apStack);
-        currentContext->lapicID = currentLapicID;
-        currentContext->kernelStack = (uint32_t)(uint64_t)apStack + PAGE_SIZE;
+        // Setup Core information
+        currentContext->lapicID = currentLapicID;    
+
+        // Create stack
+        currentContext->kernelStackSize = AP_STACK_SIZE;
+        void *kernelStack = createStack(currentContext->kernelStackSize);
+        assert(kernelStack);
+        currentContext->kernelStack = (uint32_t)(uint64_t)kernelStack + currentContext->kernelStackSize;
         
         apicCore->context = (uint64_t)currentContext;
         apicCore->pml4 = (uint32_t)(uint64_t)_KernelPML4;
@@ -118,5 +133,5 @@ void smp_init()
         WAIT_FOR_CORE(i, apicCore);   // Verify the core received the status and initialized successfully
     }
     
-    LOG("All cores initialized (%u)\n", _MADT.coreCount);
+    LOG("[BSP] All cores initialized (%u)\n", _MADT.coreCount);
 }

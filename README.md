@@ -1,5 +1,5 @@
 # OmegaOS
-x86_64 UEFI-based operating system built from scratch.
+x86_64 UEFI-based SMP operating system built from scratch.
 
 ## Goals
 - [x] UEFI Bootloader
@@ -13,7 +13,7 @@ x86_64 UEFI-based operating system built from scratch.
 - [x] Process management
 - [x] User space
 - [x] APIC
-- [ ] SMP
+- [x] SMP
 - [ ] ACPI
 - [ ] USB
 - [ ] Network

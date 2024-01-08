@@ -9,12 +9,15 @@ Queue_t *queue_create()
     
     q->front = q->rear = 0;
     q->count = 0;
+    q->lock = 0;
 
     return q;
 }
 
 void queue_enqueue(Queue_t *q, void *data)
 {
+    spinlock_acquire(&q->lock);
+
     QueueNode_t *tmp = (QueueNode_t *)kmalloc(sizeof(QueueNode_t *));
     tmp->data = data;
     tmp->next = NULL;
@@ -28,10 +31,13 @@ void queue_enqueue(Queue_t *q, void *data)
     }
     
     q->count++;
+    spinlock_release(&q->lock);
 }
 
 void *queue_deqeueue(Queue_t *q)
 {
+    spinlock_acquire(&q->lock);
+
     QueueNode_t *tmp = q->front;
     q->front = q->front->next;
     if (!q->front)
@@ -41,11 +47,14 @@ void *queue_deqeueue(Queue_t *q)
     kfree(tmp);
     q->count--;
 
+    spinlock_release(&q->lock);
     return ret;
 }
 
 void queue_remove(Queue_t *q, void *data)
 {
+    spinlock_acquire(&q->lock);
+
     QueueNode_t *tmp = q->front, *prev = NULL;
     while (tmp)
     {
@@ -56,8 +65,10 @@ void queue_remove(Queue_t *q, void *data)
             else
                 prev->next = tmp->next;
             
-            kfree(tmp);
             q->count--;
+            kfree(tmp);
+
+            spinlock_release(&q->lock);
             return;
         }
 

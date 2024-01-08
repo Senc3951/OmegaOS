@@ -12,7 +12,7 @@ global trampoline_code
 trampoline_code:
 	cli
 	cld
-	
+
 	mov bx, cs
 	mov ds, bx
 	mov es, bx
@@ -23,22 +23,22 @@ trampoline_code:
 
 	mov byte [ds:OFFSET_REL(trampoline_data.ap_status)], 1	; tell the BSP the core started
 .spin:
-	cmp	byte[ds:OFFSET_REL(trampoline_data.bsp_status)], 0
+	cmp byte [ds:OFFSET_REL(trampoline_data.bsp_status)], 0
 	je short .spin
 .continue:
 	mov byte [ds:OFFSET_REL(trampoline_data.ap_status)], 0	; reset status
 
 	; figure out the run-time address of the gdt and load it
-	mov	eax, ebx
-	add	eax, OFFSET_REL(trampoline_gdt_start)
-	mov	dword [ds:OFFSET_REL(trampoline_gdt_descriptor + 2)], eax
+	mov eax, ebx
+	add eax, OFFSET_REL(trampoline_gdt_start)
+	mov dword [ds:OFFSET_REL(trampoline_gdt_descriptor + 2)], eax
 	lgdt [ds:OFFSET_REL(trampoline_gdt_descriptor)]
 
 	; enable protected mode
 	mov eax, cr0
 	or eax, 1
 	mov cr0, eax
-	
+
 	; enter protected mode
 	mov eax, ebx
 	add eax, OFFSET_REL(trampoline_protected)
@@ -87,18 +87,12 @@ trampoline_longmode:
 	mov fs, ax
 	mov gs, ax
 	
-	; enable APIC
-	mov ecx, 0x1b
-	rdmsr
-	or eax, 0x800
-	wrmsr
-
 	; setup stack
 	mov rsp, qword [ebx + OFFSET_REL(trampoline_data.stack_top)]
-	mov rbp, 0	; null base pointer for stack unwinding
-
+	mov rbp, rsp
+	
 	; signal the bsp the code finished initializing
-    mov byte [ebx + OFFSET_REL(trampoline_data.ap_status)], 1
+	mov byte [ebx + OFFSET_REL(trampoline_data.ap_status)], 1
 
 	mov rdi, [ebx + OFFSET_REL(trampoline_data.core_context)]
 	call qword [ebx + OFFSET_REL(trampoline_data.ap_entry)]
@@ -121,21 +115,21 @@ trampoline_gdt_start:
 	dw 0xffff
 	dw 0x0000
 	db 0x00
-	db 0x9a
+	db 0x9a		; Present, DPL 0, CS
 	db 0xcf
 	db 0x00
 .data:
 	dw 0xffff
 	dw 0x0000
 	db 0x00
-	db 0x92
+	db 0x92		; Present, DPL 0, DS
 	db 0xcf
 	db 0x00
 .system:
 	dw 0x0000
 	dw 0x0000
 	db 0x00
-	db 0x98
+	db 0x98		; Present, DPL0, TSS
 	db 0xa0
 	db 0x00
 trampoline_gdt_end:

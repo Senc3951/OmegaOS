@@ -1,5 +1,6 @@
 #include <mem/heap.h>
 #include <mem/vmm.h>
+#include <arch/spinlock.h>
 #include <assert.h>
 #include <libc/string.h>
 #include <logger.h>
@@ -45,6 +46,8 @@ static struct _klmalloc_big_bins
 static klmalloc_bin_header_head_t g_klmalloc_bin_head[NUM_BINS - 1];
 static klmalloc_big_bin_header_t * g_klmalloc_newest_big = NULL;
 static uint64_t g_heapEnd = 0;
+
+MAKE_SPINLOCK(g_lock);
 
 static uintptr_t __PURE__ klmalloc_adjust_bin(uintptr_t bin)
 {
@@ -319,8 +322,9 @@ void heap_init()
 __MALLOC__ void *kmalloc(size_t size)
 {
     if (!size)
-        return NULL;
-    
+		return NULL;
+	
+	spinlock_acquire(&g_lock);
     uint32_t bucket_id = klmalloc_bin_size(size);
 	if (bucket_id < BIG_BIN)
     {
@@ -343,10 +347,12 @@ __MALLOC__ void *kmalloc(size_t size)
 			base[available << bucket_id] = NULL;
 			bin_header->size = bucket_id;
 		}
+
 		uintptr_t **item = klmalloc_stack_pop(bin_header);
 		if (klmalloc_stack_empty(bin_header))
 			klmalloc_list_decouple(&(g_klmalloc_bin_head[bucket_id]),bin_header);
 		
+		spinlock_release(&g_lock);
 		return item;
 	} else {
 		klmalloc_big_bin_header_t *bin_header = klmalloc_skip_list_findbest(size);
@@ -356,6 +362,7 @@ __MALLOC__ void *kmalloc(size_t size)
 			klmalloc_skip_list_delete(bin_header);
 			uintptr_t **item = klmalloc_stack_pop((klmalloc_bin_header_t *)bin_header);
 			
+			spinlock_release(&g_lock);
 			return item;
 		} else {
 			uintptr_t pages = (size + sizeof(klmalloc_big_bin_header_t)) / PAGE_SIZE + 1;
@@ -372,7 +379,9 @@ __MALLOC__ void *kmalloc(size_t size)
 			g_klmalloc_newest_big = bin_header;
 			bin_header->next = NULL;
 			bin_header->head = NULL;
-			return (void*)((uintptr_t)bin_header + sizeof(klmalloc_big_bin_header_t));
+
+			spinlock_release(&g_lock);
+			return (void *)((uintptr_t)bin_header + sizeof(klmalloc_big_bin_header_t));
 		}
 	}
 }
@@ -421,6 +430,7 @@ void kfree(void *ptr)
 	if (__builtin_expect(ptr == NULL, 0))
 		return;
 
+	spinlock_acquire(&g_lock);
 	if ((uintptr_t)ptr % PAGE_SIZE == 0)
 		ptr = (void *)((uintptr_t)ptr - 1);
 
@@ -447,4 +457,6 @@ void kfree(void *ptr)
 		
 		klmalloc_stack_push(header, ptr);
 	}
+
+	spinlock_release(&g_lock);
 }
