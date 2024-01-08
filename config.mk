@@ -23,7 +23,7 @@ export AFLAGS := -f elf64 $(OPTIMISATION)
 export CFLAGS := -m64 $(OPTIMISATION)
 export LFLAGS := -nostdlib $(OPTIMISATION)
 export QEMU := qemu-system-x86_64
-export QFLAGS := -machine q35 -cpu max -d cpu_reset -m 2G \
+export QFLAGS := -machine q35 -cpu max -m 2G -smp 2 -d cpu_reset \
 	-rtc base=localtime -net none -serial stdio \
 	-device piix3-ide,id=ide -drive id=disk,file=$(ROOTFS_FILE),format=raw,if=none \
 	-device ide-hd,drive=disk,bus=ide.0 \

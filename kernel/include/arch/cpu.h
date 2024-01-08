@@ -49,6 +49,13 @@ enum
 /// @param cr4 Value to write.
 #define WRITE_CR4(cr4) { asm volatile("mov %0, %%cr4" :: "r"(cr4) : "memory"); }
 
+typedef struct CORE_CONTEXT
+{
+    uint8_t lapicID;
+    uint64_t kernelStack;
+    uint64_t gdt;
+} __PACKED__ CoreContext_t;
+
 /// @brief Read MSR.
 /// @param msr msr to read.
 /// @param lo low part.
@@ -60,3 +67,5 @@ void __rdmsr(uint32_t msr, uint32_t *lo, uint32_t *hi);
 /// @param lo low part.
 /// @param hi high part.
 void __wrmsr(uint32_t msr, uint32_t lo, uint32_t hi);
+
+extern CoreContext_t *_CoreContexts;

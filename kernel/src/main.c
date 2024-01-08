@@ -8,6 +8,7 @@
 #include <arch/apic/madt.h>
 #include <arch/apic/apic.h>
 #include <arch/apic/ioapic.h>
+#include <arch/smp.h>
 #include <arch/gdt.h>
 #include <arch/idt.h>
 #include <arch/pic.h>
@@ -25,18 +26,23 @@
 extern uint64_t _kernel_start, _kernel_end, _kernel_writable_start, _kernel_writable_end;
 uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd;
 
+extern void x64_enable_cpu_features();
+
 static void dev_init()
 {
     pit_init(PIT_DEFAULT_FREQUENCY);
     ps2_kbd_init();
 }
 
-extern int _entry(BootInfo_t *bootInfo)
+int _entry(BootInfo_t *bootInfo)
 {
     __CLI();
     eassert(bootInfo && bootInfo->fb && bootInfo->font && bootInfo->mmap && bootInfo->rsdp);
     eassert(serial_init());
     
+    // Enable basic cpu features such as SSE
+    x64_enable_cpu_features();
+
     _KernelStart = (uint64_t)&_kernel_start;
     _KernelEnd = (uint64_t)&_kernel_end;
     _KernelWritableStart = (uint64_t)&_kernel_writable_start;
@@ -57,9 +63,9 @@ extern int _entry(BootInfo_t *bootInfo)
     idt_load();
     isr_init();
     pic_init(IRQ0, IRQ0 + 8, false);
+    dev_init();
+    __STI();
     
-    dev_init(); // Initialize devices
-
     // Initialize filesystem
     ide_init(ATA_DEVICE);   // Initialize disk controller
     ext2_init();            // Initialize root filesystem
@@ -68,6 +74,9 @@ extern int _entry(BootInfo_t *bootInfo)
     madt_init();
     apic_init();
     ioapic_init();
+
+    // Initialize other cores    
+    smp_init();
     
     // Initialize user-space related 
     tss_late_set();     // Add stacks to the TSS
@@ -75,8 +84,18 @@ extern int _entry(BootInfo_t *bootInfo)
     process_init();     // Initialize process related structs and init process
     scheduler_init();   // Initialize required scheduling structs
     
-    __STI();
     yield();            // Start executing processes
     
     panic("Unreachable");
+}
+
+int ap_entry(CoreContext_t *context)
+{
+    LOG("[AP] Core %u initialized. Stack: %p\n", context->lapicID, context->kernelStack);
+    
+    x64_enable_cpu_features();
+    // initialize apic, io apic, tss
+    // start scheduling
+    
+    while (1) __HALT();
 }

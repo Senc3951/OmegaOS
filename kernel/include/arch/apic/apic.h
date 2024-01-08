@@ -8,7 +8,9 @@ enum
     LAPIC_TASK_PRIORITY_REGISTER    = 0x80,
     LAPIC_REG_EOI                   = 0xB0,
     LAPIC_REG_SPURIOUS_IV           = 0xF0,
-    LAPIC_REG_INTERRUPT_COMMAND     = 0x300
+    LAPIC_ERR_STATUS_REGISTER       = 0x280,
+    LAPIC_REG_INTERRUPT_COMMAND0    = 0x300,
+    LAPIC_REG_INTERRUPT_COMMAND1    = 0x310
 };
 
 /// @brief Initialize the APIC.

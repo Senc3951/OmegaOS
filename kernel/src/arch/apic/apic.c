@@ -7,6 +7,18 @@
 #define IA32_APIC_BASE_MSR  0x1B
 #define CPUID_FEAT_EDX_APIC 512
 
+static uint64_t getBase()
+{
+    uint32_t eax, edx;
+    __rdmsr(IA32_APIC_BASE_MSR, &eax, &edx);
+
+#ifdef __PHYSICAL_MEMORY_EXTENSION__
+    return (eax & 0xfffff000) | ((edx & 0x0f) << 32);
+#else
+    return (eax & 0xfffff000);
+#endif
+}
+
 static void setBase(uint64_t base)
 {
     const uint32_t IA32_APIC_BASE_MSR_ENABLE = 0x800;
