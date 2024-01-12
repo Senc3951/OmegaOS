@@ -1,6 +1,7 @@
 bits 64
 
-KERNEL_DS equ 0x10
+%define KERNEL_DS   0x10
+%define SYSCALL_INT 0x80
 
 extern isr_interrupt_handler, _KernelPML4
 global interruptHandlers
@@ -49,7 +50,6 @@ global interruptHandlers
     pop rdx
     pop rdx
     pop rbx
-    pop rax
 %endmacro
 
 %include "src/arch/isra.inc"
@@ -78,13 +78,23 @@ isr_common:
     call isr_interrupt_handler
     
     ; restore saved segments
-    pop rax
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
+    pop rbx
+    mov ds, bx
+    mov es, bx
+    mov fs, bx
+    mov gs, bx
     
+    ; restore registers
     popaq
+    
+    ; check if should restore rax or not
+    cmp byte [rsp + 8], SYSCALL_INT
+    je .syscall
+    pop rax         ; restore
+    jmp .continue
+.syscall:
+    add rsp, 8      ; don't overwrite the return value
+.continue:
     add rsp, 16     ; remove interrupt number and error code    
     iretq
 

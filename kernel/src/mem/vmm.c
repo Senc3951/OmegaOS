@@ -3,7 +3,6 @@
 #include <mem/heap.h>
 #include <arch/isr.h>
 #include <arch/cpu.h>
-#include <sys/scheduler.h>
 #include <sys/syscalls.h>
 #include <assert.h>
 #include <panic.h>
@@ -68,7 +67,10 @@ static void pageFaultHandler(InterruptStack_t *stack)
         FLUSH_TLB(virtAddr);
     }
     else
+    {
+        LOG_PROC("Terminating process because it attempted to access an illegal address %p\n", virtAddr);
         sys_exit(0);
+    }
 }
 
 void vmm_init(const Framebuffer_t *fb)
@@ -108,13 +110,53 @@ void vmm_init(const Framebuffer_t *fb)
     vmm_switchTable(_KernelPML4);
 }
 
-PageTable_t *vmm_createAddressSpace()
+PageTable_t *vmm_createAddressSpace(PageTable_t *parent)
 {
-    PageTable_t *pml4 = vmm_createIdentityPage(_KernelPML4, VMM_USER_ATTRIBUTES);
+    PageTable_t *pml4 = vmm_createIdentityPage(parent, VMM_USER_ATTRIBUTES);
     assert(pml4);
-    memcpy(pml4, _KernelPML4, PAGE_SIZE);
-        
+    memcpy(pml4, parent, PAGE_SIZE);
+    
     return pml4;
+}
+
+void vmm_destroyAddressSpace(PageTable_t *parent, PageTable_t *pml4)
+{
+    uint16_t i, j, k, m;
+    PageTableEntry_t *entry;
+    PageTable_t *pdp, *pd, *pt;
+    for (i = 0; i < ENTRIES_PER_PAGE_TABLE; i++)
+    {
+        if (!pml4->entries[i].present)
+            continue;
+        
+        pdp = (PageTable_t *)(pml4->entries[i].attr.address << 12);
+        for (j = 0; j < ENTRIES_PER_PAGE_TABLE; j++)
+        {
+            if (!pdp->entries[j].present)
+                continue;
+            
+            pd = (PageTable_t *)(pdp->entries[j].attr.address << 12);
+            for (k = 0; k < ENTRIES_PER_PAGE_TABLE; k++)
+            {
+                if (!pd->entries[k].present)
+                    continue;
+                
+                pt = (PageTable_t *)(pd->entries[k].attr.address << 12);
+                for (m = 0; m < ENTRIES_PER_PAGE_TABLE; m++)
+                {
+                    entry = &pt->entries[m];
+                    if (!entry->present)
+                        continue;
+                    
+                    void *addr = (void *)(entry->attr.address << 12);
+                    pmm_releaseFrame(addr);
+                }
+            }
+        }   
+    }
+    
+    vmm_unmapPage(parent, pml4);
+    memset(pml4, 0, PAGE_SIZE);
 }
 
 void vmm_switchTable(PageTable_t *pml4)

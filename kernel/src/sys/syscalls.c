@@ -5,29 +5,19 @@
 #include <assert.h>
 #include <logger.h>
 
-int sys_exit(int status)
-{
-    __CLI();
+extern ssize_t sys_read(uint32_t fd, void *buf, size_t count);
+extern ssize_t sys_write(uint32_t fd, const void *buf, size_t count);
+extern int sys_open(const char *path, int flags, int mode);
+extern int sys_close(int fd);
 
-    LOG("exiting: %s with status: %d\n", _CurrentProcess->name, status);
-    process_delete(_CurrentProcess);
-    __STI();
-    
-    yield();
-    return status;
-}
-
-int sys_test(int a)
-{
-    LOG("syscall test!: %d\n", a);
-    return 1;
-}
-
-typedef long (*syscall_func_t)(int64_t, int64_t, int64_t, int64_t, int64_t);
+typedef uint64_t (*syscall_func_t)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
 static syscall_func_t g_syscalls[] = 
 {
-    [SYSCALL_EXIT]  = (syscall_func_t)(uint64_t)sys_exit,
-    [1]             = (syscall_func_t)(uint64_t)sys_test
+    [SYSCALL_READ]  = (syscall_func_t)(uint64_t)sys_read,
+    [SYSCALL_WRITE] = (syscall_func_t)(uint64_t)sys_write,
+    [SYSCALL_OPEN]  = (syscall_func_t)(uint64_t)sys_open,
+    [SYSCALL_CLOSE] = (syscall_func_t)(uint64_t)sys_close,
+    [SYSCALL_EXIT]  = (syscall_func_t)(uint64_t)sys_exit
 };
 
 #define SYSCALL_COUNT (sizeof(g_syscalls) / sizeof(*g_syscalls))
@@ -36,16 +26,15 @@ static void syscallHandler(InterruptStack_t *stack)
 {
     uint64_t num = stack->rax;
     if (num >= SYSCALL_COUNT)
+    {
+        LOG_PROC("Terminating process because received an invalid syscall (%llu)\n", num);
         sys_exit(0);
+    }
         
-    long ret = g_syscalls[num](stack->rdi, stack->rsi, stack->rdx, stack->rcx, stack->rbx);
-    stack->rax = ret;
+    stack->rax = g_syscalls[num](stack->rdi, stack->rsi, stack->rdx, stack->r10, stack->r8, stack->r9);
 }
 
 void syscalls_init()
 {
-    for (uint32_t i = 0; i < SYSCALL_COUNT; i++)
-        assert(g_syscalls[i]);
-    
     assert(isr_registerHandler(SYSCALL, syscallHandler));
 }

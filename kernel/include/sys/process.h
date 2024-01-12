@@ -4,11 +4,18 @@
 #include <fs/vfs.h>
 #include <misc/tree.h>
 
-#define MAX_PROCESS_NAME    50
-#define MAX_PROCESS_COUNT   50
+#define MAX_PROCESS_NAME            50
+#define MAX_PROCESS_COUNT           50
+#define PROCESS_PRIORITIES_COUNT    (PriorityInteractive + 1)
 
-#define PROCESS_PENDING     0
-#define PROCESS_RUNNING     1
+/// @brief Types of process priorities.
+typedef enum PROCESS_PRIORITY
+{
+    PriorityIdle,
+    PriorityLow,
+    PriorityHigh,
+    PriorityInteractive
+} ProcessPriority_t;
 
 /// @brief Context of a process.
 typedef struct CONTEXT
@@ -22,31 +29,37 @@ typedef struct CONTEXT
     uint64_t stackButtom, stackSize;
 } Context_t;
 
+typedef struct DESCRIPTOR_TABLE
+{
+    VfsNode_t **nodes;
+    int size;
+    int capacity;
+} FileDescriptorTable_t;
+
 /// @brief Information of a process. 
 typedef struct PROCESS
 {
     int id;
-    int status;
+    ProcessPriority_t priority;
     Context_t ctx;
     PageTable_t *pml4;
     TreeNode_t *treeNode;
+    FileDescriptorTable_t *fdt;
     char name[MAX_PROCESS_NAME];
     char cwd[FS_MAX_PATH];
+#define parent_proc treeNode->parent->value
 } Process_t;
 
 /// @brief Initialize processes.
-/// @return Init process.
+/// @return Idle process.
 Process_t *process_init();
-
-/// @brief Create the init process.
-/// @return Init process.
-Process_t *process_createInit();
 
 /// @brief Create a process.
 /// @param name Name of the process.
 /// @param entry Entry point of the process.
+/// @param priority Priority of the process.
 /// @return Created process.
-Process_t *process_create(const char *name, void *entry);
+Process_t *process_create(const char *name, void *entry, const ProcessPriority_t priority);
 
 /// @brief Delete a process.
 /// @param process Process to delete.

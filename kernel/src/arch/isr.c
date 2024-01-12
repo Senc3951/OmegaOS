@@ -53,7 +53,7 @@ extern void isr_interrupt_handler(InterruptStack_t *stack)
     }
     else if (USER_INTERRUPT(stack))
     {
-        LOG("Terminating process because interrupt 0x%x occurred.\n", intNum);
+        LOG_PROC("Terminating process because interrupt 0x%x occurred.\n", intNum);
         sys_exit(0);
     }
     else

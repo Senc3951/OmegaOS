@@ -60,12 +60,14 @@ extern int _entry(BootInfo_t *bootInfo)
     ext2_init();            // Initialize root filesystem
     
     // Initialize user-space related 
-    syscalls_init();                    // Initialize syscalls
-    Process_t *p = process_init();
-    scheduler_init(p);   // Initialize required scheduling structs
-        
-    process_create("p1", t1);
-    process_create("p2", t2);
+    syscalls_init();        // Initialize syscalls
+    process_init();         // Initialize process management
+    scheduler_init();       // Initialize the scheduler
+    
+    process_create("p1", t1, PriorityHigh);
+    process_create("p2", t2, PriorityHigh);
+    
+    LOG("Kernel initialization finished. Jumping to user space\n\n");
     yield();                // Start executing processes
     
     panic("Unreachable");

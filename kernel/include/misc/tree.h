@@ -20,5 +20,5 @@ typedef struct TREE
 Tree_t *tree_create();
 void tree_set_root(Tree_t *tree, void *value);
 TreeNode_t *tree_create_node(void *value);
-void tree_insert(Tree_t *tree, TreeNode_t *parent, void *value);
+void tree_insert(Tree_t *tree, TreeNode_t *parent, TreeNode_t *node);
 void tree_remove(Tree_t *tree, TreeNode_t *node);

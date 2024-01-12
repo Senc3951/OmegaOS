@@ -52,8 +52,14 @@ typedef struct PAGE_TABLE
 void vmm_init(const Framebuffer_t *fb);
 
 /// @brief Create a new address space.
+/// @param parent Parent page table.
 /// @return New address space.
-PageTable_t *vmm_createAddressSpace();
+PageTable_t *vmm_createAddressSpace(PageTable_t *parent);
+
+/// @brief Destroy an address space.
+/// @param parent Parent page table.
+/// @param pml4 Page table to destroy.
+void vmm_destroyAddressSpace(PageTable_t *parent, PageTable_t *pml4);
 
 /// @brief Switch the pml4 table.
 /// @param pml4 Table to switch.

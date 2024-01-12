@@ -35,18 +35,14 @@ TreeNode_t *tree_create_node(void *value)
     return node;
 }
 
-void tree_insert(Tree_t *tree, TreeNode_t *parent, void *value)
+void tree_insert(Tree_t *tree, TreeNode_t *parent, TreeNode_t *node)
 {
-    TreeNode_t *new = tree_create_node(value);
-    if (!new)
-        return;
-
     lock_acquire(&tree->lock);
 
-    list_insert(parent->children, new);
-    new->parent = parent;
+    list_insert(parent->children, node);
+    node->parent = parent;
     tree->nodes++;
-
+    
     lock_release(&tree->lock);
 }
 
