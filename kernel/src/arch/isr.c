@@ -52,7 +52,10 @@ extern void isr_interrupt_handler(InterruptStack_t *stack)
         g_handlers[intNum](stack);
     }
     else if (USER_INTERRUPT(stack))
+    {
+        LOG("Terminating process because interrupt 0x%x occurred.\n", intNum);
         sys_exit(0);
+    }
     else
         ipanic(stack, "Unhandled interrupt");
 }

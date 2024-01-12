@@ -1,16 +1,19 @@
 #include <sys/syscalls.h>
 #include <sys/scheduler.h>
 #include <arch/isr.h>
+#include <io/io.h>
 #include <assert.h>
 #include <logger.h>
 
 int sys_exit(int status)
 {
+    __CLI();
+
     LOG("exiting: %s with status: %d\n", _CurrentProcess->name, status);
-    scheduler_remove(_CurrentProcess);
     process_delete(_CurrentProcess);
-    yield();
+    __STI();
     
+    yield();
     return status;
 }
 

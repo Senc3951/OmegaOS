@@ -1,5 +1,6 @@
 #include <arch/pic.h>
 #include <io/io.h>
+#include <logger.h>
 
 void pic_init(const uint8_t offset1, const uint8_t offset2, const bool autoEOI)
 {
@@ -31,6 +32,7 @@ void pic_init(const uint8_t offset1, const uint8_t offset2, const bool autoEOI)
     outb(PIC2_DATA, icw4);
     __IO_WAIT();
     
+    LOG("PIC mapped at 0x%x-0x%x\n", offset1, offset2 + 8);
     pic_disable();
 }
 

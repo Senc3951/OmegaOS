@@ -27,11 +27,11 @@ void idt_load()
     for (size_t i = 0; i < IDT_ENTRIES; i++)
     {
         if (i >= IRQ0 && i <= IRQ15)
-            setEntry(i, interruptHandlers[i], GDT_KERNEL_CS, IDT_TRAP_TYPE0, 0);
+            setEntry(i, interruptHandlers[i], GDT_KERNEL_CS, IDT_TRAP_TYPE0, 2);
         else if (i == SYSCALL)
-            setEntry(i, interruptHandlers[i], GDT_KERNEL_CS, IDT_INTERRUPT_TYPE3, 0);
+            setEntry(i, interruptHandlers[i], GDT_KERNEL_CS, IDT_INTERRUPT_TYPE3, 1);
         else
-            setEntry(i, interruptHandlers[i], GDT_KERNEL_CS, IDT_INTERRUPT_TYPE0, 0);
+            setEntry(i, interruptHandlers[i], GDT_KERNEL_CS, IDT_INTERRUPT_TYPE0, 1);
     }
     
     g_idt.base = (uint64_t)g_idtEntries;

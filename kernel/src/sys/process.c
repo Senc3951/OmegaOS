@@ -4,17 +4,15 @@
 #include <mem/heap.h>
 #include <misc/tree.h>
 #include <assert.h>
-#include <io/io.h>
 #include <libc/string.h>
 
 #define USER_RFLAGS 0x202
 
 #define INIT_PROCESS_NAME   "init"
-#define INIT_STACK_SIZE     (1 * _KB)
 
 static Tree_t *g_processTree = NULL;
 
-extern void x64_init_proccess();
+extern void x64_idle();
 
 Process_t *process_init()
 {
@@ -49,8 +47,8 @@ Process_t *createProcess(const char *name, PageTable_t *addressSpace, void *entr
 
 Process_t *process_createInit()
 {
-    vmm_createPages(_KernelPML4, (void *)USER_STACK_START, INIT_STACK_SIZE / PAGE_SIZE, VMM_USER_ATTRIBUTES);    
-    return createProcess(INIT_PROCESS_NAME, _KernelPML4, x64_init_proccess, USER_STACK_START, INIT_STACK_SIZE, GDT_KERNEL_CS, GDT_KERNEL_DS);
+    PageTable_t *pml4 = vmm_createAddressSpace();    
+    return createProcess(INIT_PROCESS_NAME, pml4, x64_idle, USER_STACK_START, 0, GDT_KERNEL_CS, GDT_KERNEL_DS);
 }
 
 Process_t *process_create(const char *name, void *entry)

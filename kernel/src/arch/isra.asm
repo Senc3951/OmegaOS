@@ -2,14 +2,14 @@ bits 64
 
 KERNEL_DS equ 0x10
 
-extern isr_interrupt_handler
+extern isr_interrupt_handler, _KernelPML4
 global interruptHandlers
 
 %macro ISR_EXCEPTION 2
     global INT%1
     INT%1:
         %if %2 == 1
-            push qword 0    ; Push dummy error code
+            push qword 0    ; push dummy error code
         %endif
         
         push qword %1
@@ -57,12 +57,18 @@ global interruptHandlers
 isr_common:
     cld
     pushaq
-        
+
+    ; handle inside kernel page table
+    mov rax, [_KernelPML4]
+    mov cr3, rax
+
+    ; store current segments
     xor rax, rax
     mov ax, ds
     push rax
     
-    mov ax, KERNEL_DS   ; switch to kernel ds
+    ; handle inside kernel segments
+    mov ax, KERNEL_DS
     mov ds, ax
     mov es, ax
     mov fs, ax
@@ -71,7 +77,8 @@ isr_common:
     mov rdi, rsp
     call isr_interrupt_handler
     
-    pop rax     ; restore ds
+    ; restore saved segments
+    pop rax
     mov ds, ax
     mov es, ax
     mov fs, ax

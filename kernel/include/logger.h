@@ -2,7 +2,11 @@
 
 #include <gui/printf.h>
 
-#define LOG(...) fctprintf(__kfctprintf, NULL, __VA_ARGS__)
+#ifdef DEBUG
+    #define LOG(...) fctprintf(__kfctprintf, NULL, __VA_ARGS__)
+#else
+    #define LOG(...) { }
+#endif
 
 /// @brief Print a char.
 /// @param c Char to print.

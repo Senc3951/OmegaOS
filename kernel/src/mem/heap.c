@@ -1,5 +1,6 @@
 #include <mem/heap.h>
 #include <mem/vmm.h>
+#include <arch/lock.h>
 #include <assert.h>
 #include <libc/string.h>
 #include <logger.h>
@@ -45,6 +46,8 @@ static struct _klmalloc_big_bins
 static klmalloc_bin_header_head_t g_klmalloc_bin_head[NUM_BINS - 1];
 static klmalloc_big_bin_header_t * g_klmalloc_newest_big = NULL;
 static uint64_t g_heapEnd = 0;
+
+MAKE_SPINLOCK(g_lock);
 
 static uintptr_t __PURE__ klmalloc_adjust_bin(uintptr_t bin)
 {
@@ -311,16 +314,18 @@ static int klmalloc_stack_empty(klmalloc_bin_header_t *header)
 void heap_init()
 {
     g_heapEnd = (KERNEL_HEAP_START + PAGE_SIZE) & ~0xFFF;
-    vmm_createPages(_KernelPML4, (void *)KERNEL_HEAP_START, (KERNEL_HEAP_END - KERNEL_HEAP_START) / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
+	uint64_t pages = KERNEL_HEAP_SIZE / PAGE_SIZE;
+    vmm_createPages(_KernelPML4, (void *)KERNEL_HEAP_START, pages, VMM_KERNEL_ATTRIBUTES);
 	
-	LOG("Kernel heap: %p - %p\n", KERNEL_HEAP_START, KERNEL_HEAP_END);
+	LOG("Kernel heap at %p - %p (%llu pages)\n", KERNEL_HEAP_START, KERNEL_HEAP_END, pages);
 }
 
 __MALLOC__ void *kmalloc(size_t size)
 {
     if (!size)
-        return NULL;
-    
+		return NULL;
+	
+	lock_acquire(&g_lock);
     uint32_t bucket_id = klmalloc_bin_size(size);
 	if (bucket_id < BIG_BIN)
     {
@@ -343,10 +348,12 @@ __MALLOC__ void *kmalloc(size_t size)
 			base[available << bucket_id] = NULL;
 			bin_header->size = bucket_id;
 		}
+
 		uintptr_t **item = klmalloc_stack_pop(bin_header);
 		if (klmalloc_stack_empty(bin_header))
 			klmalloc_list_decouple(&(g_klmalloc_bin_head[bucket_id]),bin_header);
 		
+		lock_release(&g_lock);
 		return item;
 	} else {
 		klmalloc_big_bin_header_t *bin_header = klmalloc_skip_list_findbest(size);
@@ -356,6 +363,7 @@ __MALLOC__ void *kmalloc(size_t size)
 			klmalloc_skip_list_delete(bin_header);
 			uintptr_t **item = klmalloc_stack_pop((klmalloc_bin_header_t *)bin_header);
 			
+			lock_release(&g_lock);
 			return item;
 		} else {
 			uintptr_t pages = (size + sizeof(klmalloc_big_bin_header_t)) / PAGE_SIZE + 1;
@@ -372,7 +380,9 @@ __MALLOC__ void *kmalloc(size_t size)
 			g_klmalloc_newest_big = bin_header;
 			bin_header->next = NULL;
 			bin_header->head = NULL;
-			return (void*)((uintptr_t)bin_header + sizeof(klmalloc_big_bin_header_t));
+
+			lock_release(&g_lock);
+			return (void *)((uintptr_t)bin_header + sizeof(klmalloc_big_bin_header_t));
 		}
 	}
 }
@@ -421,6 +431,7 @@ void kfree(void *ptr)
 	if (__builtin_expect(ptr == NULL, 0))
 		return;
 
+	lock_acquire(&g_lock);
 	if ((uintptr_t)ptr % PAGE_SIZE == 0)
 		ptr = (void *)((uintptr_t)ptr - 1);
 
@@ -447,4 +458,6 @@ void kfree(void *ptr)
 		
 		klmalloc_stack_push(header, ptr);
 	}
+
+	lock_release(&g_lock);
 }

@@ -78,8 +78,8 @@ void vmm_init(const Framebuffer_t *fb)
     // Create the PML4 table.
     assert(_KernelPML4 = (PageTable_t *)pmm_getFrame());
     memset(_KernelPML4, 0, PAGE_SIZE);
-    LOG("Kernel PML4: %p\n", _KernelPML4);
-
+    LOG("Kernel PML4 at %p\n", _KernelPML4);
+    
     // Identity map entire memory
     uint64_t memEnd = RNDUP(pmm_getMemorySize(), PAGE_SIZE);
     for (uint64_t addr = 0; addr < memEnd; addr += PAGE_SIZE)

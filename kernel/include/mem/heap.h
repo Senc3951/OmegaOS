@@ -2,6 +2,10 @@
 
 #include <common.h>
 
+#define KERNEL_HEAP_START       0xFFFFFFFF80000000ULL
+#define KERNEL_HEAP_SIZE        (1024 * PAGE_SIZE)
+#define KERNEL_HEAP_END         (KERNEL_HEAP_START + KERNEL_HEAP_SIZE)
+
 /// @brief Initialize the heap.
 void heap_init();
 

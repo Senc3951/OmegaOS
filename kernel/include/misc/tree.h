@@ -1,6 +1,7 @@
 #pragma once
 
 #include <misc/list.h>
+#include <arch/lock.h>
 
 typedef struct TREE_NODE
 {
@@ -11,8 +12,9 @@ typedef struct TREE_NODE
 
 typedef struct TREE
 {
-    size_t nodes;
     TreeNode_t *root;
+    size_t nodes;
+    lock_t lock;
 } Tree_t;
 
 Tree_t *tree_create();

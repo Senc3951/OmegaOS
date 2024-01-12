@@ -35,6 +35,7 @@
 
 #include <gui/printf.h>
 #include <gui/screen.h>
+#include <arch/lock.h>
 
 // 'ntoa' conversion buffer size, this must be big enough to hold one converted
 // numeric number including padded zeros (dynamically created on stack)
@@ -568,6 +569,7 @@ return idx;
 #endif  // PRINTF_SUPPORT_EXPONENTIAL
 #endif  // PRINTF_SUPPORT_FLOAT
 
+MAKE_SPINLOCK(g_lock);
 
 // internal vsnprintf
 static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const char* format, va_list va)
@@ -575,6 +577,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
 unsigned int flags, width, precision, n;
 size_t idx = 0U;
 
+lock_acquire(&g_lock);
 if (!buffer) {
     // use null output function
     out = _out_null;
@@ -849,6 +852,7 @@ while (*format)
 out((char)0, buffer, idx < maxlen ? idx : maxlen - 1U, maxlen);
 
 // return written chars without terminating \0
+lock_release(&g_lock);
 return (int)idx;
 }
 

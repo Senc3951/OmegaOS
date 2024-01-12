@@ -43,9 +43,29 @@ static void setTSS(const uint8_t i)
 	};
 }
 
-static void setTSSRing(size_t i, void *stack)
+static void setTssInterrupt(uint16_t interrupt, void *stack)
+{
+    g_gdtBlock.tss.ist[interrupt - 1] = (uint64_t)stack;
+}
+
+static void setTssRing(size_t i, void *stack)
 {
     g_gdtBlock.tss.rsp[i] = (uint64_t)stack;
+}
+
+void tssSetLate()
+{
+    void *kstack = kmalloc(KERNEL_STACK_SIZE);
+    assert(kstack);
+    setTssRing(0, kstack);
+    
+    void *isrStack = kmalloc(KERNEL_STACK_SIZE);
+    assert(isrStack);
+    setTssInterrupt(1, isrStack);
+    
+    void *pitStack = kmalloc(KERNEL_STACK_SIZE);
+    assert(pitStack);
+    setTssInterrupt(2, pitStack);
 }
 
 void gdt_load()
@@ -68,11 +88,6 @@ void gdt_load()
     
     x64_load_gdt(&g_gdt, GDT_KERNEL_CS, GDT_KERNEL_DS);
     x64_flush_tss(GDT_TSS_INDEX);
-}
 
-void tss_late_set()
-{
-    void *kstack = kmalloc(KERNEL_STACK_SIZE);
-    assert(kstack);
-    setTSSRing(0, kstack);
+    tssSetLate();
 }

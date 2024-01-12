@@ -43,7 +43,7 @@ void screen_init(Framebuffer_t *fb, PSF1Font_t *font)
     g_color = White;
     
     screen_clear(Black);
-    LOG("Framebuffer: %p (%ux%ux%u)\n", fb->baseAddress, fb->height, fb->width, fb->bytesPerPixel * 8);
+    LOG("Framebuffer at %p (%ux%ux%u)\n", fb->baseAddress, fb->height, fb->width, fb->bytesPerPixel * 8);
 }
 
 void screen_putc(const char c)

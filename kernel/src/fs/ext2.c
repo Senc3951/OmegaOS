@@ -710,6 +710,7 @@ void ext2_init()
     // Set ext2 as root filesystem
     assert(_RootFS = ino2vfs(INODE_ROOT, "/"));
     assert((_RootFS->flags & FS_DIR) == FS_DIR);
+    LOG("Ext2 filesystem mounted at /\n");
 }
 
 ssize_t ext2_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)

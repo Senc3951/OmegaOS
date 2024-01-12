@@ -111,7 +111,7 @@ void pmm_init(MemoryDescriptor_t *mmap, const uint64_t mmapSize, const uint64_t 
     g_bitmap = (uint64_t *)largestSegment->physicalStart;
     uint64_t bitmapSizeInBytes = g_bitmapSize * sizeof(*g_bitmap);
     assert(bitmapSizeInBytes < largestMemSegment);  // Segment must be large enough to hold the bitmap
-    LOG("Bitmap: %p (%llu bytes)\n", g_bitmap, bitmapSizeInBytes);
+    LOG("Bitmap at %p (%llu bytes)\n", g_bitmap, bitmapSizeInBytes);
     
     // Reserve entire memory
     memset(g_bitmap, 0xFF, bitmapSizeInBytes);

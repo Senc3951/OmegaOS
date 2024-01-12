@@ -68,6 +68,3 @@ typedef struct GDT
 
 /// @brief Load the GDT into the CPU.
 void gdt_load();
-
-/// @brief Add stack(s) to the tss in case of switch to ring0 / certain interrupts.
-void tss_late_set();
