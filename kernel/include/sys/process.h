@@ -32,8 +32,8 @@ typedef struct CONTEXT
 typedef struct DESCRIPTOR_TABLE
 {
     VfsNode_t **nodes;
-    int size;
-    int capacity;
+    uint32_t size;
+    uint32_t capacity;
 } FileDescriptorTable_t;
 
 /// @brief Information of a process. 

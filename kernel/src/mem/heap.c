@@ -195,9 +195,9 @@ static void push_free(Chunk_t *chunk)
 
 void heap_init()
 {
-	uint64_t pages = KERNEL_HEAP_SIZE / PAGE_SIZE;
-	vmm_createPages(_KernelPML4, (void *)KERNEL_HEAP_START, pages, VMM_KERNEL_ATTRIBUTES);
-	LOG("Kernel heap at %p - %p (%llu pages)\n", KERNEL_HEAP_START, KERNEL_HEAP_END, pages);
+    uint64_t pages = KERNEL_HEAP_SIZE / PAGE_SIZE;
+    vmm_createPages(_KernelPML4, (void *)KERNEL_HEAP_START, pages, VMM_KERNEL_ATTRIBUTES);
+    LOG("Kernel heap at %p - %p (%llu pages)\n", KERNEL_HEAP_START, KERNEL_HEAP_END, pages);
     
     char *memStart = (char *)(((intptr_t)KERNEL_HEAP_START + ALIGN - 1) & (~(ALIGN - 1)));
     char *memEnd = (char *)(((intptr_t)KERNEL_HEAP_START + KERNEL_HEAP_SIZE) & (~(ALIGN - 1)));

@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <logger.h>
 
-int sys_open(const char *path, int flags, int mode)
+uint32_t sys_open(const char *path, int flags, int mode)
 {
     UNUSED(mode);
     LOG_PROC("sys_open file %s with flags %d\n", path, flags);

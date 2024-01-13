@@ -7,8 +7,8 @@
 
 extern ssize_t sys_read(uint32_t fd, void *buf, size_t count);
 extern ssize_t sys_write(uint32_t fd, const void *buf, size_t count);
-extern int sys_open(const char *path, int flags, int mode);
-extern int sys_close(int fd);
+extern uint32_t sys_open(const char *path, int flags, int mode);
+extern int sys_close(uint32_t fd);
 
 typedef uint64_t (*syscall_func_t)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
 static syscall_func_t g_syscalls[] = 

@@ -94,7 +94,7 @@ void process_delete(Process_t *process)
     //vmm_destroyAddressSpace(parentProcess->pml4, process->pml4);
     
     // Close open files
-    for (int i = 0; i < process->fdt->size; i++)
+    for (uint32_t i = 0; i < process->fdt->size; i++)
     {
         VfsNode_t *node = process->fdt->nodes[i];
         vfs_close(node);
