@@ -6,7 +6,7 @@
 #ifdef DEBUG
     #define LOG(...)            fctprintf(__kfctprintf, NULL, __VA_ARGS__)
     #define LOG_PROC(...) ({                                                    \
-        LOG("[process %s/%u] ", _CurrentProcess->name, _CurrentProcess->id);    \
+        LOG("[%s/%u] ", _CurrentProcess->name, _CurrentProcess->id);            \
         LOG(__VA_ARGS__);                                                       \
     })
 #else

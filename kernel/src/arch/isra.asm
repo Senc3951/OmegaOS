@@ -3,7 +3,7 @@ bits 64
 %define KERNEL_DS   0x10
 %define SYSCALL_INT 0x80
 
-extern isr_interrupt_handler, _KernelPML4
+extern isr_interrupt_handler
 global interruptHandlers
 
 %macro ISR_EXCEPTION 2
@@ -57,10 +57,6 @@ global interruptHandlers
 isr_common:
     cld
     pushaq
-
-    ; handle inside kernel page table
-    mov rax, [_KernelPML4]
-    mov cr3, rax
 
     ; store current segments
     xor rax, rax

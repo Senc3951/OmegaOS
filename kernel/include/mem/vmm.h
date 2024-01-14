@@ -109,7 +109,7 @@ void *vmm_createPage(PageTable_t *pml4, void *virt, const uint64_t attr);
 /// @param virt Virtual address to map the page to.
 /// @param pages Pages to map.
 /// @param attr Attributes of the page.
-/// @return Virtual address of the page.
+/// @return Last virtual address of the page.
 void *vmm_createPages(PageTable_t *pml4, void *virt, const uint64_t pages, const uint64_t attr);
 
 /// @brief Allocate a virtual page and map it in the page table.

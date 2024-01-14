@@ -44,6 +44,10 @@ bool isr_registerHandler(const uint8_t interrupt, ISRHandler handler)
 extern void isr_interrupt_handler(InterruptStack_t *stack)
 {
     uint64_t intNum = stack->interruptNumber;
+    if (intNum == 0xe)
+    {
+        intNum = 0xe;
+    }
     if (g_handlers[intNum])
     {
         if (intNum >= IRQ0 && intNum <= IRQ15)

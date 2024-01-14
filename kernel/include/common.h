@@ -23,7 +23,7 @@ extern uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableE
 
 #define PAGE_SIZE               4096ULL
 
-#define USER_STACK_START        0x7FFFFFFFE000
+#define USER_STACK_START        0xC0000000ULL
 #define USER_STACK_SIZE         (8 * PAGE_SIZE)
 
 #define RNDUP(num, nm)          ((num) < nm ? nm : (((num) / nm) * nm))

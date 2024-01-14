@@ -20,9 +20,6 @@
 extern uint64_t _kernel_start, _kernel_end, _kernel_writable_start, _kernel_writable_end;
 uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd;
 
-extern void t1();
-extern void t2();
-
 void dev_init()
 {
     pit_init(PIT_DEFAULT_FREQUENCY);
@@ -43,6 +40,7 @@ extern int _entry(BootInfo_t *bootInfo)
     screen_init(bootInfo->fb, bootInfo->font);
     
     // Initialize memory management
+    isr_init();
     pmm_init(bootInfo->mmap, bootInfo->mmapSize, bootInfo->mmapDescriptorSize, bootInfo->fb);
     vmm_init(bootInfo->fb);
     heap_init();
@@ -50,7 +48,6 @@ extern int _entry(BootInfo_t *bootInfo)
     // Initialize interrupts
     gdt_load();
     idt_load();
-    isr_init();
     pic_init(IRQ0, IRQ0 + 8, false);
     dev_init();
     __STI();
@@ -64,8 +61,8 @@ extern int _entry(BootInfo_t *bootInfo)
     process_init();         // Initialize process management
     scheduler_init();       // Initialize the scheduler
     
-    process_create("p1", t1, PriorityHigh);
-    process_create("p2", t2, PriorityHigh);
+    extern void shell();
+    process_create("Shell", shell, PriorityInteractive);
     
     LOG("Kernel initialization finished. Jumping to user space\n\n");
     yield();                // Start executing processes

@@ -19,7 +19,7 @@ ssize_t sys_write(uint32_t fd, const void *buf, size_t count)
     }
     
     if (fd >= _CurrentProcess->fdt->size)
-        return -ENOENT;;
+        return -ENOENT;
 
     VfsNode_t *node = _CurrentProcess->fdt->nodes[fd];
     return vfs_write(node, node->offset, count, (void *)buf);

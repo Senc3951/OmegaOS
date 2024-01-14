@@ -20,10 +20,12 @@ static int getNextID()
     return x64_atomic_add((uint64_t *)&id, 1);
 }
 
-static Process_t *createProcess(const char *name, PageTable_t *addressSpace, void *entry, const ProcessPriority_t priority, uint64_t stackSize, const uint64_t cs, const uint64_t ds)
+static Process_t *createProcess(const char *name, PageTable_t *addressSpace, void *entry, const ProcessPriority_t priority, void *stackButtom, uint64_t stackSize, const uint64_t cs, const uint64_t ds)
 {
     Process_t *process = (Process_t *)kmalloc(sizeof(Process_t));
-    assert(process && addressSpace);
+    if (!process)
+        return NULL;
+    
     process->pml4 = addressSpace;
     strncpy(process->name, name, MAX_PROCESS_NAME);
     strncpy(process->cwd, FS_PATH_SEPERATOR_STR, FS_MAX_PATH);
@@ -31,8 +33,8 @@ static Process_t *createProcess(const char *name, PageTable_t *addressSpace, voi
     memset(&process->ctx, 0, sizeof(process->ctx));
     process->ctx.rip = (uint64_t)entry;
     process->ctx.cs = cs;
-    process->ctx.rsp = process->ctx.rbp = USER_STACK_START + stackSize;
-    process->ctx.stackButtom = USER_STACK_START;
+    process->ctx.rsp = process->ctx.rbp = (uint64_t)stackButtom + stackSize;
+    process->ctx.stackButtom = (uint64_t)stackButtom;
     process->ctx.rflags = USER_RFLAGS;
     process->ctx.ss = ds;
     process->ctx.stackSize = stackSize;
@@ -44,7 +46,7 @@ static Process_t *createProcess(const char *name, PageTable_t *addressSpace, voi
     process->fdt->capacity = 1;
     assert(process->fdt->nodes = (VfsNode_t **)kmalloc(sizeof(VfsNode_t *)));
     
-    LOG("Created process %s with id %u. entry at %p, pml4 at %p, stack at %p - %p\n", name, process->id, entry, addressSpace, USER_STACK_START, USER_STACK_START + stackSize);
+    LOG("Created process `%s` with id %u. entry at %p, stack at %p - %p\n", process->name, process->id, process->ctx.rip, process->ctx.stackButtom, process->ctx.stackButtom + stackSize);
     return process;
 }
 
@@ -56,7 +58,7 @@ Process_t *process_init()
     assert(g_processTree = tree_create());
     
     // Create the idle process
-    _IdleProcess = createProcess(INIT_PROCESS_NAME, _KernelPML4, x64_idle, PriorityIdle, 0, GDT_KERNEL_CS, GDT_KERNEL_DS);
+    assert(_IdleProcess = createProcess(INIT_PROCESS_NAME, _KernelPML4, x64_idle, PriorityIdle, 0, 0, GDT_KERNEL_CS, GDT_KERNEL_DS));
     
     // Insert idle process as root process
     tree_set_root(g_processTree, _IdleProcess);
@@ -69,14 +71,18 @@ Process_t *process_create(const char *name, void *entry, const ProcessPriority_t
 {
     // Create a page table for the process and map the stack
     PageTable_t *pml4 = vmm_createAddressSpace(_IdleProcess->pml4);
-    vmm_createPages(pml4, (void *)USER_STACK_START, USER_STACK_SIZE / PAGE_SIZE, VMM_USER_ATTRIBUTES);
+    assert(pml4);
+    assert(vmm_createPages(pml4, (void *)USER_STACK_START, USER_STACK_SIZE / PAGE_SIZE, VMM_USER_ATTRIBUTES));
     
     // Create the process and insert into the process tree
-    Process_t *process = createProcess(name, pml4, entry, priority, USER_STACK_SIZE, GDT_USER_CS, GDT_USER_DS);
+    Process_t *process = createProcess(name, pml4, entry, priority, (void *)USER_STACK_START, USER_STACK_SIZE, GDT_USER_CS, GDT_USER_DS);
+    assert(process);
     assert(process->treeNode = tree_create_node(process));
     tree_insert(g_processTree, g_processTree->root, process->treeNode);
     
+    // Insert the process as ready to schedule
     scheduler_add(process);
+    
     return process;
 }
 

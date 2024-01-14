@@ -57,6 +57,7 @@ static void pageFaultHandler(InterruptStack_t *stack)
     if (!(errCode & PF_USER))
        ipanic(stack, "Page fault in kernel");
     
+    virtAddr = RNDWN(virtAddr, PAGE_SIZE);
     PageTable_t *pml4 = _CurrentProcess->pml4;
     if (errCode & PF_PRESENT)
     {
@@ -65,6 +66,7 @@ static void pageFaultHandler(InterruptStack_t *stack)
         
         vmm_mapPage(pml4, frame, (void *)virtAddr, VMM_USER_ATTRIBUTES);
         FLUSH_TLB(virtAddr);
+        LOG_PROC("Mapped %p to %p\n", virtAddr, frame);
     }
     else
     {
@@ -279,14 +281,14 @@ void *vmm_createPage(PageTable_t *pml4, void *virt, const uint64_t attr)
 
 void *vmm_createPages(PageTable_t *pml4, void *virt, const uint64_t pages, const uint64_t attr)
 {
-    void *f1 = vmm_createPage(pml4, virt, attr);
-    if (!f1)
-        return f1;
+    void *addr = NULL;
+    for (uint64_t i = 0; i < pages; i++)
+    {
+        if (!(addr = vmm_createPage(pml4, (void *)((uint64_t)virt + i * PAGE_SIZE), attr)))
+            return NULL;
+    }
     
-    for (uint64_t i = 1; i < pages; i++)
-        vmm_createPage(pml4, (void *)((uint64_t)virt + i * PAGE_SIZE), attr);
-
-    return f1;
+    return addr;
 }
 
 void *vmm_createIdentityPage(PageTable_t *pml4, const uint64_t attr)
