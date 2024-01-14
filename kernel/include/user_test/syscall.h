@@ -3,38 +3,63 @@
 #include <stdint.h>
 #include <stddef.h>
 
-inline void syscall1(uint64_t p, uint64_t param1) {    
-    asm volatile (
-        "mov %[num], %%rax\n\t"    // Set the syscall number in rax
-        "mov %[param1], %%rdi\n\t" // Set the value for rdi
-        "int $0x80"                 // Trigger uint64_terrupt 0x80
-        :
-        : [num] "r" (p), [param1] "r" (param1)
-        : "rax", "rdi"
-    );
-}
+#define SYSCALL_READ    0
+#define SYSCALL_WRITE   1
+#define SYSCALL_OPEN    2
+#define SYSCALL_CLOSE   3
+#define SYSCALL_EXIT    4
 
-inline void syscall2(uint64_t p, uint64_t param1, uint64_t param2) {    
-    asm volatile (
-        "mov %[num], %%rax\n\t"    // Set the syscall number in rax
-        "mov %[param1], %%rdi\n\t" // Set the value for rdi
-        "mov %[param2], %%rsi\n\t" // Set the value for rsi
-        "int $0x80"                 // Trigger uint64_terrupt 0x80
-        :
-        : [num] "r" (p), [param1] "r" (param1), [param2] "r" (param2)
-        : "rax", "rdi", "rsi"
-    );
-}
+#define SYSCALL_0(n) ({             \
+    uint64_t __result;              \
+    asm volatile(                   \
+        "int $0x80"                 \
+        : "=a" (__result)           \
+        : "0" (n)                   \
+        : "rcx", "r11", "memory"    \
+    );                              \
+    __result;                       \
+})
 
-inline void syscall3(uint64_t p, uint64_t param1, uint64_t param2, uint64_t param3) {    
-    asm volatile (
-        "mov %[num], %%rax\n\t"    // Set the syscall number in rax
-        "mov %[param1], %%rdi\n\t" // Set the value for rdi
-        "mov %[param2], %%rsi\n\t" // Set the value for rsi
-        "mov %[param3], %%rdx\n\t" // Set the value for rdx
-        "int $0x80"                 // Trigger uint64_terrupt 0x80
-        :
-        : [num] "r" (p), [param1] "r" (param1), [param2] "r" (param2), [param3] "r" (param3)
-        : "rax", "rdi", "rsi", "rdx"
-    );
-}
+#define SYSCALL_1(n, arg1) ({       \
+    uint64_t __result;              \
+    asm volatile(                   \
+        "int $0x80"                 \
+        : "=a" (__result)           \
+        : "0" (n), "D" (arg1)       \
+        : "rcx", "r11", "memory"    \
+    );                              \
+    __result;                       \
+})
+
+#define SYSCALL_2(n, arg1, arg2) ({         \
+    uint64_t __result;                      \
+    asm volatile(                           \
+        "int $0x80"                         \
+        : "=a" (__result)                   \
+        : "0" (n), "D" (arg1), "S" (arg2)   \
+        : "rcx", "r11", "memory"            \
+    );                                      \
+    __result;                               \
+})
+
+#define SYSCALL_3(n, arg1, arg2, arg3) ({               \
+    uint64_t __result;                                  \
+    asm volatile(                                       \
+        "int $0x80"                                     \
+        : "=a" (__result)                               \
+        : "0" (n), "D" (arg1), "S" (arg2), "d" (arg3)   \
+        : "rcx", "r11", "memory"                        \
+    );                                                  \
+    __result;                                           \
+})
+
+#define SYSCALL_4(n, arg1, arg2, arg3, arg4) ({                     \
+    uint64_t __result;                                              \
+    asm volatile(                                                   \
+        "int $0x80"                                                 \
+        : "=a" (__result)                                           \
+        : "0" (n), "D" (arg1), "S" (arg2), "d" (arg3), "r"(arg4)    \
+        : "rcx", "r11", "memory"                                    \
+    );                                                              \
+    __result;                                                       \
+})

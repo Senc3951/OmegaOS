@@ -59,6 +59,8 @@ void screen_putc(const char c)
             g_y += 16;
             
             break;
+        case '\0':
+            break;
         default:
             drawc(c);
             break;

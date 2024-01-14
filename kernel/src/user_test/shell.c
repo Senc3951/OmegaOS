@@ -1,9 +1,10 @@
-#include <user_test/syscall.h>
+#include <user_test/unistd.h>
 
-void Xshell()
+void shell()
 {
-    int y = 6;
+    int y;
     char x[12] = "hello world";
-    syscall3(1, 1, (uint64_t)x, sizeof(x));
-    syscall1(4, y);
+    
+    y = write(STDOUT, x, sizeof(x));
+    exit(y);
 }

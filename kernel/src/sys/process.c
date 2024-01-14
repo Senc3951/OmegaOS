@@ -33,7 +33,7 @@ static Process_t *createProcess(const char *name, PageTable_t *addressSpace, voi
     memset(&process->ctx, 0, sizeof(process->ctx));
     process->ctx.rip = (uint64_t)entry;
     process->ctx.cs = cs;
-    process->ctx.rsp = process->ctx.rbp = (uint64_t)stackButtom + stackSize;
+    process->ctx.rsp = (uint64_t)stackButtom + stackSize;
     process->ctx.stackButtom = (uint64_t)stackButtom;
     process->ctx.rflags = USER_RFLAGS;
     process->ctx.ss = ds;
