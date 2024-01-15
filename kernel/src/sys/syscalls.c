@@ -9,6 +9,9 @@ extern ssize_t sys_read(uint32_t fd, void *buf, size_t count);
 extern ssize_t sys_write(uint32_t fd, const void *buf, size_t count);
 extern uint32_t sys_open(const char *path, int flags, int mode);
 extern int sys_close(uint32_t fd);
+extern int sys_mkdir(const char *name, uint32_t attr);
+extern long sys_ftell(uint32_t fd);
+extern int sys_lseek(uint32_t fd, long offset, int whence);
 
 typedef uint64_t (*syscall_func_t)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
 static syscall_func_t g_syscalls[] = 
@@ -17,7 +20,10 @@ static syscall_func_t g_syscalls[] =
     [SYSCALL_WRITE] = (syscall_func_t)(uint64_t)sys_write,
     [SYSCALL_OPEN]  = (syscall_func_t)(uint64_t)sys_open,
     [SYSCALL_CLOSE] = (syscall_func_t)(uint64_t)sys_close,
-    [SYSCALL_EXIT]  = (syscall_func_t)(uint64_t)sys_exit
+    [SYSCALL_EXIT]  = (syscall_func_t)(uint64_t)sys_exit,
+    [SYSCALL_MKDIR] = (syscall_func_t)(uint64_t)sys_mkdir,
+    [SYSCALL_FTELL] = (syscall_func_t)(uint64_t)sys_ftell,
+    [SYSCALL_LSEEK] = (syscall_func_t)(uint64_t)sys_lseek
 };
 
 #define SYSCALL_COUNT (sizeof(g_syscalls) / sizeof(*g_syscalls))

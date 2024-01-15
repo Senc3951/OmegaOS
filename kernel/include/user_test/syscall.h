@@ -8,6 +8,9 @@
 #define SYSCALL_OPEN    2
 #define SYSCALL_CLOSE   3
 #define SYSCALL_EXIT    4
+#define SYSCALL_MKDIR   5
+#define SYSCALL_FTELL   6
+#define SYSCALL_LSEEK   7
 
 #define SYSCALL_0(n) ({             \
     uint64_t __result;              \

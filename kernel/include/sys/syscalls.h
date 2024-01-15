@@ -7,10 +7,9 @@
 #define SYSCALL_OPEN    2
 #define SYSCALL_CLOSE   3
 #define SYSCALL_EXIT    4
-
-#define STDIN   0
-#define STDOUT  1
-#define STDERR  2
+#define SYSCALL_MKDIR   5
+#define SYSCALL_FTELL   6
+#define SYSCALL_LSEEK   7
 
 /// @brief Stop the current process.
 /// @param status Status to stop with.

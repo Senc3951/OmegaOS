@@ -42,6 +42,7 @@ void scheduler_init()
 
 void scheduler_add(Process_t *process)
 {
+    LOG("[REMOVE] priority of %s/%u is %u\n", process->name, process->id, process->priority);
     assert(process->priority >= 0 && process->priority < PROCESS_PRIORITIES_COUNT);
     queue_enqueue(g_processQueues[process->priority], process);
 }

@@ -2,6 +2,7 @@
 #include <sys/scheduler.h>
 #include <arch/atomic.h>
 #include <arch/gdt.h>
+#include <fs/std.h>
 #include <mem/heap.h>
 #include <misc/tree.h>
 #include <assert.h>
@@ -42,9 +43,12 @@ static Process_t *createProcess(const char *name, PageTable_t *addressSpace, voi
     process->id = getNextID();
     
     assert(process->fdt = (FileDescriptorTable_t *)kmalloc(sizeof(FileDescriptorTable_t)));
-    process->fdt->size = 0;
-    process->fdt->capacity = 1;
-    assert(process->fdt->nodes = (VfsNode_t **)kmalloc(sizeof(VfsNode_t *)));
+    process->fdt->size = 3;
+    process->fdt->capacity = 3;
+    assert(process->fdt->nodes = (VfsNode_t **)kmalloc(process->fdt->size * sizeof(VfsNode_t *)));
+    assert(process->fdt->nodes[0] = createStdinNode());
+    assert(process->fdt->nodes[1] = createStdoutNode());
+    assert(process->fdt->nodes[2] = createStderrNode());
     
     LOG("Created process `%s` with id %u. entry at %p, stack at %p - %p\n", process->name, process->id, process->ctx.rip, process->ctx.stackButtom, process->ctx.stackButtom + stackSize);
     return process;
@@ -106,7 +110,7 @@ void process_delete(Process_t *process)
         vfs_close(node);
         kfree(node);
     }
-    
+       
     kfree(process->fdt);
     kfree(process);
 }
