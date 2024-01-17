@@ -25,14 +25,6 @@ uint32_t sys_open(const char *path, int flags, int mode)
         
     }
     
-    if (_CurrentProcess->fdt->size == _CurrentProcess->fdt->capacity)
-    {
-        _CurrentProcess->fdt->capacity *= 2;
-        _CurrentProcess->fdt->nodes = (VfsNode_t **)krealloc(_CurrentProcess->fdt->nodes, sizeof(VfsNode_t *) * _CurrentProcess->fdt->capacity);
-        if (!_CurrentProcess->fdt->nodes)
-            return -ENOMEM;
-    }
-        
-    _CurrentProcess->fdt->nodes[_CurrentProcess->fdt->size++] = node;
-    return _CurrentProcess->fdt->size - 1;
+    vfs_open(node, flags);
+    return process_add_file(_CurrentProcess, node);
 }

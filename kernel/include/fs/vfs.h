@@ -91,6 +91,12 @@ typedef struct dirent
     char name[FS_MAX_PATH];
 } dirent;
 
+typedef struct DIR
+{
+    uint32_t fd;
+    size_t i;
+} DIR;
+
 extern VfsNode_t *_RootFS;
 
 /// @brief Get a VfsNode of a file.

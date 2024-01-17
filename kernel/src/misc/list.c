@@ -41,13 +41,18 @@ void list_append(list_t *list, node_t *node)
 	list->length++;
 }
 
-void list_insert(list_t *list, void *item)
+bool list_insert(list_t *list, void *item)
 {
 	node_t *node = (node_t *)kmalloc(sizeof(node_t));
+	if (!node)
+		return false;
+	
 	node->value = item;
 	node->next  = NULL;
 	node->prev  = NULL;
 	list_append(list, node);
+
+	return true;
 }
 
 void list_append_after(list_t *list, node_t *before, node_t *node)

@@ -12,6 +12,20 @@ typedef long ssize_t;
 #define SEEK_CUR    1
 #define SEEK_END    2
 
+#define MAX_PATH    256
+
+typedef struct dirent
+{
+    uint32_t ino;
+    char name[MAX_PATH];
+} dirent;
+
+typedef struct DIR
+{
+    uint32_t fd;
+    size_t i;
+} DIR;
+
 inline ssize_t read(uint32_t fd, void *buf, size_t count)
 {
     return SYSCALL_3(SYSCALL_READ, fd, (uint64_t)buf, count);
@@ -50,4 +64,21 @@ inline long ftell(uint32_t fd)
 inline int lseek(uint32_t fd, long offset, int whence)
 {
     return SYSCALL_3(SYSCALL_LSEEK, fd, offset, whence);
+}
+
+inline DIR *opendir(const char *name)
+{
+    uint64_t ret = SYSCALL_1(SYSCALL_OPENDIR, (uint64_t)name);
+    return (DIR *)ret;
+}
+
+inline struct dirent *readdir(DIR *dirp)
+{
+    uint64_t ret = SYSCALL_1(SYSCALL_READDIR, (uint64_t)dirp);
+    return (struct dirent *)ret;
+}
+
+inline void closedir(DIR *dirp)
+{
+    SYSCALL_1(SYSCALL_CLOSEDIR, (uint64_t)dirp);
 }

@@ -1,10 +1,13 @@
 #include <mem/heap.h>
 #include <mem/vmm.h>
+#include <arch/lock.h>
 #include <assert.h>
 #include <libc/string.h>
 #include <logger.h>
 
 // https://wiki.osdev.org/User:Mrvn/LinkedListBucketHeapImplementation
+
+MAKE_SPINLOCK(g_lock);
 
 typedef struct DList
 {
@@ -196,7 +199,7 @@ static void push_free(Chunk_t *chunk)
 void heap_init()
 {
     uint64_t pages = KERNEL_HEAP_SIZE / PAGE_SIZE;
-    vmm_createPages(_KernelPML4, (void *)KERNEL_HEAP_START, pages, VMM_KERNEL_ATTRIBUTES);
+    vmm_createPages(_KernelPML4, (void *)KERNEL_HEAP_START, pages, VMM_USER_ATTRIBUTES);
     LOG("Kernel heap at %p - %p (%llu pages)\n", KERNEL_HEAP_START, KERNEL_HEAP_END, pages);
     
     char *memStart = (char *)(((intptr_t)KERNEL_HEAP_START + ALIGN - 1) & (~(ALIGN - 1)));
@@ -224,15 +227,22 @@ __MALLOC__ void *kmalloc(size_t size)
     if (size < MIN_SIZE)
         size = MIN_SIZE;
 
+    lock_acquire(&g_lock);
     int n = memory_chunk_slot(size - 1) + 1;
     if (n >= NUM_SIZES)
+    {
+        lock_release(&g_lock);
         return NULL;
+    }
 
     while (!g_freeChunks[n])
     {
         ++n;
         if (n >= NUM_SIZES)
+        {
+            lock_release(&g_lock);
             return NULL;
+        }
     }
 
     Chunk_t *chunk = DLIST_POP(&g_freeChunks[n], free);
@@ -249,6 +259,8 @@ __MALLOC__ void *kmalloc(size_t size)
     }
 
     chunk->used = 1;
+    lock_release(&g_lock);
+
     return chunk->data;
 }
 
@@ -267,9 +279,11 @@ __MALLOC__ void *krealloc(void *addr, size_t ns)
     if (!addr)
         return NULL;
     
+    lock_acquire(&g_lock);
     Chunk_t *chunk = (Chunk_t*)((char*)addr - HEADER_SIZE);
     size_t chunkSize = memory_chunk_size(chunk);
-    
+    lock_release(&g_lock);
+
     void *ptr = kmalloc(ns);
     if (!ptr)
         return NULL;
@@ -284,6 +298,7 @@ void kfree(void *addr)
     if (!addr)
         return;
     
+    lock_acquire(&g_lock);
     Chunk_t *chunk = (Chunk_t *)((char*)addr - HEADER_SIZE);
     assert(chunk->used);
     
@@ -306,4 +321,6 @@ void kfree(void *addr)
         DLIST_INIT(chunk, free);
         push_free(chunk);
     }
+    
+    lock_release(&g_lock);
 }

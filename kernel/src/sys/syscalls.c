@@ -12,18 +12,24 @@ extern int sys_close(uint32_t fd);
 extern int sys_mkdir(const char *name, uint32_t attr);
 extern long sys_ftell(uint32_t fd);
 extern int sys_lseek(uint32_t fd, long offset, int whence);
+extern DIR *sys_opendir(const char *name);
+extern struct dirent *sys_readdir(DIR *dirp);
+extern void sys_closedir(DIR *dirp);
 
 typedef uint64_t (*syscall_func_t)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
 static syscall_func_t g_syscalls[] = 
 {
-    [SYSCALL_READ]  = (syscall_func_t)(uint64_t)sys_read,
-    [SYSCALL_WRITE] = (syscall_func_t)(uint64_t)sys_write,
-    [SYSCALL_OPEN]  = (syscall_func_t)(uint64_t)sys_open,
-    [SYSCALL_CLOSE] = (syscall_func_t)(uint64_t)sys_close,
-    [SYSCALL_EXIT]  = (syscall_func_t)(uint64_t)sys_exit,
-    [SYSCALL_MKDIR] = (syscall_func_t)(uint64_t)sys_mkdir,
-    [SYSCALL_FTELL] = (syscall_func_t)(uint64_t)sys_ftell,
-    [SYSCALL_LSEEK] = (syscall_func_t)(uint64_t)sys_lseek
+    [SYSCALL_READ]      = (syscall_func_t)(uint64_t)sys_read,
+    [SYSCALL_WRITE]     = (syscall_func_t)(uint64_t)sys_write,
+    [SYSCALL_OPEN]      = (syscall_func_t)(uint64_t)sys_open,
+    [SYSCALL_CLOSE]     = (syscall_func_t)(uint64_t)sys_close,
+    [SYSCALL_EXIT]      = (syscall_func_t)(uint64_t)sys_exit,
+    [SYSCALL_MKDIR]     = (syscall_func_t)(uint64_t)sys_mkdir,
+    [SYSCALL_FTELL]     = (syscall_func_t)(uint64_t)sys_ftell,
+    [SYSCALL_LSEEK]     = (syscall_func_t)(uint64_t)sys_lseek,
+    [SYSCALL_OPENDIR]   = (syscall_func_t)(uint64_t)sys_opendir,
+    [SYSCALL_READDIR]   = (syscall_func_t)(uint64_t)sys_readdir,
+    [SYSCALL_CLOSEDIR]  = (syscall_func_t)(uint64_t)sys_closedir
 };
 
 #define SYSCALL_COUNT (sizeof(g_syscalls) / sizeof(*g_syscalls))

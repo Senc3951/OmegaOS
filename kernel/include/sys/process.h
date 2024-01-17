@@ -64,3 +64,15 @@ Process_t *process_create(const char *name, void *entry, const ProcessPriority_t
 /// @brief Delete a process.
 /// @param process Process to delete.
 void process_delete(Process_t *process);
+
+/// @brief Add a file to the list of open files.
+/// @param process Process to add the file to.
+/// @param node File to add.
+/// @return fd of the added file, -ENOMEM if an error occurred.
+int64_t process_add_file(Process_t *process, VfsNode_t *node);
+
+/// @brief Close a file.
+/// @param process Process to close the file to.
+/// @param fd File descriptor of the file.
+/// @return True if successfully closed the file, False, otherwise.
+bool process_close_file(Process_t *process, const uint32_t fd);

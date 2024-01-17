@@ -43,12 +43,12 @@ static Process_t *createProcess(const char *name, PageTable_t *addressSpace, voi
     process->id = getNextID();
     
     assert(process->fdt = (FileDescriptorTable_t *)kmalloc(sizeof(FileDescriptorTable_t)));
-    process->fdt->size = 3;
+    process->fdt->size = 0;
     process->fdt->capacity = 3;
-    assert(process->fdt->nodes = (VfsNode_t **)kmalloc(process->fdt->size * sizeof(VfsNode_t *)));
-    assert(process->fdt->nodes[0] = createStdinNode());
-    assert(process->fdt->nodes[1] = createStdoutNode());
-    assert(process->fdt->nodes[2] = createStderrNode());
+    assert(process->fdt->nodes = (VfsNode_t **)kmalloc(process->fdt->capacity * sizeof(VfsNode_t *)));
+    assert(process_add_file(process, createStdinNode()) >= 0);
+    assert(process_add_file(process, createStdoutNode()) >= 0);
+    assert(process_add_file(process, createStderrNode()) >= 0);
     
     LOG("Created process `%s` with id %u. entry at %p, stack at %p - %p\n", process->name, process->id, process->ctx.rip, process->ctx.stackButtom, process->ctx.stackButtom + stackSize);
     return process;
@@ -104,13 +104,35 @@ void process_delete(Process_t *process)
     //vmm_destroyAddressSpace(parentProcess->pml4, process->pml4);
     
     // Close open files
-    for (uint32_t i = 0; i < process->fdt->size; i++)
-    {
-        VfsNode_t *node = process->fdt->nodes[i];
-        vfs_close(node);
-        kfree(node);
-    }
-       
+    //for (uint32_t i = 0; i < process->fdt->size; i++)
+        //process_close_file(process, i);
+      
     kfree(process->fdt);
     kfree(process);
+}
+
+int64_t process_add_file(Process_t *process, VfsNode_t *node)
+{
+    if (process->fdt->size == process->fdt->capacity)
+    {
+        process->fdt->capacity *= 2;
+        process->fdt->nodes = (VfsNode_t **)krealloc(process->fdt->nodes, sizeof(VfsNode_t *) * process->fdt->capacity);
+        if (!process->fdt->nodes)
+            return -ENOMEM;
+    }
+    
+    process->fdt->nodes[process->fdt->size] = node;
+    return process->fdt->size++;
+}
+
+bool process_close_file(Process_t *process, const uint32_t fd)
+{
+    if (fd >= process->fdt->size)
+        return false;
+
+    VfsNode_t *node = process->fdt->nodes[fd];
+    vfs_close(node);
+    kfree(node);
+
+    return true;
 }
