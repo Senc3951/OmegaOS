@@ -43,9 +43,6 @@ enum INTERRUPT_LIST
 
 typedef void (*ISRHandler)(InterruptStack_t *stack);
 
-/// @brief Initialize the ISR routines.
-void isr_init();
-
 /// @brief Register an interrupt handler.
 /// @param interrupt Interrupt number to register the handler to.
 /// @param handler Handler that will be called on the interrupt.

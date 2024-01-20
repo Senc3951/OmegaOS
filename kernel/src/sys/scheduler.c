@@ -11,7 +11,18 @@
     x64_context_switch(&process->ctx);  \
 })
 
+#define SWITCH_PROCESS_FAST(process) ({     \
+    x64_context_switch_fast(&process->ctx); \
+})
+
+#define ENTER_SIGNAL(process, sig) ({       \
+    vmm_switchTable(process->pml4);         \
+    x64_switch_signal(&process->ctx, sig);  \
+})
+
 extern void x64_context_switch(Context_t *ctx);
+extern void x64_context_switch_fast(Context_t *ctx);
+extern void x64_switch_signal(Context_t *ctx, uint64_t handler);
 
 Process_t *_CurrentProcess = NULL, *_IdleProcess = NULL;
 static Queue_t **g_processQueues = NULL;
@@ -42,7 +53,7 @@ void scheduler_init()
 
 void scheduler_add(Process_t *process)
 {
-    LOG("[REMOVE] priority of %s/%u is %u\n", process->name, process->id, process->priority);
+    proc_dump(process);
     assert(process->priority >= 0 && process->priority < PROCESS_PRIORITIES_COUNT);
     queue_enqueue(g_processQueues[process->priority], process);
 }
@@ -56,7 +67,16 @@ void scheduler_remove(Process_t *process)
 void yield()
 {
     _CurrentProcess = getNextProcess();
-    SWITCH_PROCESS(_CurrentProcess);
+    signal_t *sig;
+    
+    if ((sig = (signal_t *)queue_deqeueue(_CurrentProcess->sigQueue)) && _CurrentProcess->sigtb[sig->num])
+    {
+        ENTER_SIGNAL(_CurrentProcess, sig->handler);
+        kfree(sig);
+        SWITCH_PROCESS_FAST(_CurrentProcess);
+    }
+    else
+        SWITCH_PROCESS(_CurrentProcess);
 }
 
 void yield_cs(InterruptStack_t *stack)

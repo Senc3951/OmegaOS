@@ -1,4 +1,5 @@
 #include <fs/std.h>
+#include <dev/ps2/kbd.h>
 #include <mem/heap.h>
 #include <gui/screen.h>
 
@@ -18,10 +19,9 @@ ssize_t stdinRead(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
 {
     UNUSED(node);
     UNUSED(offset);
-    UNUSED(size);
-    UNUSED(buffer);
-
-    return 0;
+    
+    ps2_kbd_read(buffer, size);
+    return size;
 }
 
 VfsNode_t *createStdinNode()

@@ -5,17 +5,10 @@
 #include <panic.h>
 #include <logger.h>
 
-static ISRHandler g_handlers[IDT_ENTRIES];
-static bool g_slaveEnabled;
+static ISRHandler g_handlers[IDT_ENTRIES] = { 0 };
+static bool g_slaveEnabled = false;
 
 #define USER_INTERRUPT(stack) (stack->cs == GDT_USER_CS && stack->ds == GDT_USER_DS)
-
-void isr_init()
-{
-    g_slaveEnabled = false;
-    for (uint32_t i = 0; i < IDT_ENTRIES; i++)
-        g_handlers[i] = NULL;
-}
 
 bool isr_registerHandler(const uint8_t interrupt, ISRHandler handler)
 {
@@ -53,7 +46,7 @@ extern void isr_interrupt_handler(InterruptStack_t *stack)
     }
     else if (USER_INTERRUPT(stack))
     {
-        LOG_PROC("Terminating process because interrupt 0x%x occurred.\n", intNum);
+        LOG_PROC("Terminating process because interrupt 0x%x occurred (0x%x).\n", intNum, stack->errorCode);
         sys_exit(0);
     }
     else

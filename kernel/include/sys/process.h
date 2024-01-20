@@ -1,7 +1,9 @@
 #pragma once
 
+#include <sys/signal.h>
 #include <mem/vmm.h>
 #include <fs/vfs.h>
+#include <misc/queue.h>
 #include <misc/tree.h>
 
 #define MAX_PROCESS_NAME            50
@@ -11,7 +13,7 @@
 /// @brief Types of process priorities.
 typedef enum PROCESS_PRIORITY
 {
-    PriorityIdle,
+    PriorityIdle = 0,
     PriorityLow,
     PriorityHigh,
     PriorityInteractive
@@ -29,22 +31,17 @@ typedef struct CONTEXT
     uint64_t stackButtom, stackSize;
 } Context_t;
 
-typedef struct DESCRIPTOR_TABLE
-{
-    VfsNode_t **nodes;
-    uint32_t size;
-    uint32_t capacity;
-} FileDescriptorTable_t;
-
 /// @brief Information of a process. 
 typedef struct PROCESS
 {
     int id;
-    ProcessPriority_t priority;
+    short priority;
     Context_t ctx;
     PageTable_t *pml4;
     TreeNode_t *treeNode;
-    FileDescriptorTable_t *fdt;
+    list_t *fdt;
+    uint64_t sigtb[SIG_COUNT];
+    Queue_t *sigQueue;
     char name[MAX_PROCESS_NAME];
     char cwd[FS_MAX_PATH];
 #define parent_proc treeNode->parent->value
@@ -61,6 +58,8 @@ Process_t *process_init();
 /// @return Created process.
 Process_t *process_create(const char *name, void *entry, const ProcessPriority_t priority);
 
+void proc_dump(Process_t *p);
+
 /// @brief Delete a process.
 /// @param process Process to delete.
 void process_delete(Process_t *process);
@@ -69,7 +68,7 @@ void process_delete(Process_t *process);
 /// @param process Process to add the file to.
 /// @param node File to add.
 /// @return fd of the added file, -ENOMEM if an error occurred.
-int64_t process_add_file(Process_t *process, VfsNode_t *node);
+int process_add_file(Process_t *process, VfsNode_t *node);
 
 /// @brief Close a file.
 /// @param process Process to close the file to.

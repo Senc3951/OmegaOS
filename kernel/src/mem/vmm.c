@@ -54,8 +54,6 @@ static void pageFaultHandler(InterruptStack_t *stack)
 {
     uint64_t virtAddr = READ_CR2();
     uint64_t errCode = stack->errorCode;
-    if (!(errCode & PF_USER))
-       ipanic(stack, "Page fault in kernel");
     
     virtAddr = RNDWN(virtAddr, PAGE_SIZE);
     PageTable_t *pml4 = _CurrentProcess->pml4;
@@ -64,9 +62,14 @@ static void pageFaultHandler(InterruptStack_t *stack)
         void *frame = pmm_getFrame();
         assert(frame);
         
-        vmm_mapPage(pml4, frame, (void *)virtAddr, VMM_USER_ATTRIBUTES);
+        bool user = errCode & PF_USER;
+        vmm_mapPage(pml4, frame, (void *)virtAddr, user ? VMM_USER_ATTRIBUTES : VMM_KERNEL_ATTRIBUTES);
         FLUSH_TLB(virtAddr);
-        LOG_PROC("Mapped %p to %p\n", virtAddr, frame);
+
+        if (user)
+            LOG_PROC("Mapped %p to %p\n", virtAddr, frame);
+        else
+            LOG("[Kernel] Mapped %p yo %p\n", virtAddr, frame);
     }
     else
     {
@@ -123,6 +126,8 @@ PageTable_t *vmm_createAddressSpace(PageTable_t *parent)
 
 void vmm_destroyAddressSpace(PageTable_t *parent, PageTable_t *pml4)
 {
+    return;
+    
     uint16_t i, j, k, m;
     PageTableEntry_t *entry;
     PageTable_t *pdp, *pd, *pt;

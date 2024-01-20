@@ -36,6 +36,9 @@ void queue_enqueue(Queue_t *q, void *data)
 
 void *queue_deqeueue(Queue_t *q)
 {
+    if (!q->count)
+        return NULL;
+    
     lock_acquire(&q->lock);
 
     QueueNode_t *tmp = q->front;

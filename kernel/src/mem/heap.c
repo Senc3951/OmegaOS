@@ -244,12 +244,12 @@ __MALLOC__ void *kmalloc(size_t size)
             return NULL;
         }
     }
-
+    
     Chunk_t *chunk = DLIST_POP(&g_freeChunks[n], free);
     size_t len = 0, size2 = memory_chunk_size(chunk);
     if (size + sizeof(Chunk_t) <= size2)
     {
-        Chunk_t *chunk2 = (Chunk_t*)(((char*)chunk) + HEADER_SIZE + size);
+        Chunk_t *chunk2 = (Chunk_t *)(((char *)chunk) + HEADER_SIZE + size);
         memory_chunk_init(chunk2);
         dlist_insert_after(&chunk->all, &chunk2->all);
 
@@ -280,7 +280,7 @@ __MALLOC__ void *krealloc(void *addr, size_t ns)
         return NULL;
     
     lock_acquire(&g_lock);
-    Chunk_t *chunk = (Chunk_t*)((char*)addr - HEADER_SIZE);
+    Chunk_t *chunk = (Chunk_t *)((char *)addr - HEADER_SIZE);
     size_t chunkSize = memory_chunk_size(chunk);
     lock_release(&g_lock);
 

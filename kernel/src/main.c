@@ -11,6 +11,7 @@
 #include <mem/vmm.h>
 #include <mem/heap.h>
 #include <dev/pit.h>
+#include <dev/ps2/kbd.h>
 #include <dev/storage/ide.h>
 #include <fs/ext2.h>
 #include <sys/syscalls.h>
@@ -23,6 +24,7 @@ uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd;
 void dev_init()
 {
     pit_init(PIT_DEFAULT_FREQUENCY);
+    //assert(ps2_kbd_init());
 }
 
 extern int _entry(BootInfo_t *bootInfo)
@@ -40,7 +42,6 @@ extern int _entry(BootInfo_t *bootInfo)
     screen_init(bootInfo->fb, bootInfo->font);
     
     // Initialize memory management
-    isr_init();
     pmm_init(bootInfo->mmap, bootInfo->mmapSize, bootInfo->mmapDescriptorSize, bootInfo->fb);
     vmm_init(bootInfo->fb);
     heap_init();
@@ -49,6 +50,7 @@ extern int _entry(BootInfo_t *bootInfo)
     gdt_load();
     idt_load();
     pic_init(IRQ0, IRQ0 + 8, false);
+    pic_disable();
     dev_init();
     __STI();
     

@@ -156,7 +156,7 @@ VfsNode_t *vfs_openFile(const char *name, uint32_t attr)
 
 ssize_t vfs_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
 {
-    if (!node || !node->read)
+    if (!node || !node->read || (node->attr & O_WRONLY))
         return -EPERM;
     if ((node->flags & FS_FILE) != FS_FILE)
         return -EISDIR;
@@ -166,7 +166,7 @@ ssize_t vfs_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
 
 ssize_t vfs_write(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
 {
-    if (!node || !node->write)
+    if (!node || !node->write || (node->attr & O_RDONLY))
         return -EPERM;
     if ((node->flags & FS_FILE) != FS_FILE)
         return -EISDIR;

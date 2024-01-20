@@ -13,6 +13,8 @@
 #define SYSCALL_OPENDIR     8
 #define SYSCALL_READDIR     9
 #define SYSCALL_CLOSEDIR    10
+#define SYSCALL_RAISE       11
+#define SYSCALL_SIGNAL      12
 
 /// @brief Stop the current process.
 /// @param status Status to stop with.

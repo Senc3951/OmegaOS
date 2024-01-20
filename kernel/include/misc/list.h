@@ -19,9 +19,10 @@ typedef struct LIST
 void list_destroy(list_t *list);
 void list_free(list_t *list);
 void list_append(list_t *list, node_t *item);
-bool list_insert(list_t *list, void *item);
+int list_insert(list_t *list, void *item);
 list_t *list_create();
 node_t *list_find(list_t *list, void *value);
+node_t *list_find_index(list_t *list, size_t index);
 void list_remove(list_t *list, size_t index);
 void list_delete(list_t *list, node_t *node);
 node_t *list_pop(list_t *list);

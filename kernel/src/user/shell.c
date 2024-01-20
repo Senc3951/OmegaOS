@@ -1,6 +1,8 @@
-#include <user_test/unistd.h>
-#include <user_test/fcntl.h>
-#include <user_test/string.h>
+#include <fcntl.h>
+#include <string.h>
+#include <errno.h>
+#include <stdio.h>
+#include <unistd.h>
 
 void shell()
 {
@@ -10,6 +12,7 @@ void shell()
         exit(1);
     
     struct dirent *d;
+    char dn[] = "test_dir";
     while ((d = readdir(dir)))
     {
         char new[MAX_PATH];
@@ -22,6 +25,6 @@ void shell()
     }
     closedir(dir);
     
-    int r = mkdir("test_dir", 0);
+    int r = mkdir(dn, 0);
     exit(r);
 }

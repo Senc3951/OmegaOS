@@ -33,8 +33,10 @@
 #define S_IRUSR   0x400
 #define S_IRWXU   (S_IXUSR | S_IWUSR | S_IRUSR)
 
-#define	FREAD		0x0001
-#define	FWRITE		0x0002
+#define	O_RDONLY	0x0000		/* open for reading only */
+#define	O_WRONLY	0x0001		/* open for writing only */
+#define	O_RDWR		0x0002		/* open for reading and writing */
+#define	O_ACCMODE	0x0003		/* mask for above modes */
 #define	O_NONBLOCK	0x0004		/* no delay */
 #define	O_APPEND	0x0008		/* set append mode */
 #define	O_SHLOCK	0x0010		/* open with shared file lock */
@@ -62,7 +64,8 @@ typedef int (*delete_type_t)(VfsNode_t *, const char *);
 struct VFS_NODE
 {
     char name[FS_MAX_PATH];
-    uint32_t attr;  /* Attributes of file. */
+    uint32_t mode;
+    uint32_t attr;
     uint32_t uid;
     uint32_t gid;
     uint32_t flags; /* Type of file. */

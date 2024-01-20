@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+typedef long ssize_t;
+
 #define SYSCALL_READ        0
 #define SYSCALL_WRITE       1
 #define SYSCALL_OPEN        2
@@ -14,6 +16,8 @@
 #define SYSCALL_OPENDIR     8
 #define SYSCALL_READDIR     9
 #define SYSCALL_CLOSEDIR    10
+#define SYSCALL_RAISE       11
+#define SYSCALL_SIGNAL      12
 
 #define SYSCALL_0(n) ({             \
     uint64_t __result;              \

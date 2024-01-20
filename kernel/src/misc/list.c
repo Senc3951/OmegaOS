@@ -41,18 +41,18 @@ void list_append(list_t *list, node_t *node)
 	list->length++;
 }
 
-bool list_insert(list_t *list, void *item)
+int list_insert(list_t *list, void *item)
 {
 	node_t *node = (node_t *)kmalloc(sizeof(node_t));
 	if (!node)
-		return false;
+		return -1;
 	
 	node->value = item;
 	node->next  = NULL;
 	node->prev  = NULL;
 	list_append(list, node);
-
-	return true;
+	
+	return list->length - 1;
 }
 
 void list_append_after(list_t *list, node_t *before, node_t *node)
@@ -112,6 +112,22 @@ node_t *list_find(list_t *list, void *value)
 	}
 
 	return NULL;
+}
+
+node_t *list_find_index(list_t *list, size_t index)
+{
+	if (index > list->length)
+		return NULL;
+
+	size_t i = 0;
+	node_t *n = list->head;
+	while (i < index)
+	{
+		n = n->next;
+		i++;
+	}
+
+	return n;
 }
 
 void list_remove(list_t *list, size_t index)

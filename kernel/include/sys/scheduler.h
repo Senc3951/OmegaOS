@@ -3,6 +3,8 @@
 #include <arch/isr.h>
 #include <sys/process.h>
 
+#define PROC_FILE_AT(fd)    ((VfsNode_t *)(list_find_index(_CurrentProcess->fdt, fd)->value))
+
 /// @brief Initialize the scheduler.
 void scheduler_init();
 
