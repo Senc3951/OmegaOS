@@ -24,7 +24,7 @@ uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd;
 void dev_init()
 {
     pit_init(PIT_DEFAULT_FREQUENCY);
-    //assert(ps2_kbd_init());
+    assert(ps2_kbd_init());
 }
 
 extern int _entry(BootInfo_t *bootInfo)
@@ -49,9 +49,9 @@ extern int _entry(BootInfo_t *bootInfo)
     // Initialize interrupts
     gdt_load();
     idt_load();
+    dev_init();
     pic_init(IRQ0, IRQ0 + 8, false);
     pic_disable();
-    dev_init();
     __STI();
     
     // Initialize filesystem
@@ -64,7 +64,7 @@ extern int _entry(BootInfo_t *bootInfo)
     scheduler_init();       // Initialize the scheduler
     
     extern void shell();
-    process_create("Shell", shell, PriorityInteractive);
+    assert(process_create("Shell", shell, PriorityInteractive));
     
     LOG("Kernel initialization finished. Jumping to user space\n\n");
     yield();                // Start executing processes

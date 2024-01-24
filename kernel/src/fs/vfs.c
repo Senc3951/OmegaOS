@@ -6,10 +6,13 @@
 
 VfsNode_t *_RootFS = NULL;
 
-static char *normalizePath(char *cwd, const char *path)
+char *normalizePath(char *cwd, const char *path)
 {
     char *output = NULL;
     list_t *lst = list_create();
+    if (!lst)
+        return NULL;
+    
     if (*path && *path != FS_PATH_SEPERATOR)
     {
         // Path is relative, push working directory

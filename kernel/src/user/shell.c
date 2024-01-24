@@ -16,8 +16,8 @@ void shell()
     while ((d = readdir(dir)))
     {
         char new[MAX_PATH];
-        size_t l = strlen(d->name);
-        strcpy(new, d->name);
+        size_t l = strlen(d->d_name);
+        strcpy(new, d->d_name);
         new[l] = '\n';
         new[l + 1] = '\0';
         
@@ -26,5 +26,22 @@ void shell()
     closedir(dir);
     
     int r = mkdir(dn, 0);
+    if (r == 0 || r == EEXIST)
+    {
+        char cwd[MAX_PATH];
+        getcwd(cwd, MAX_PATH);
+        cwd[1] = '\n';
+        cwd[2] = '\0';
+        write(stdout, cwd, strlen(cwd));
+        
+        char newcwd[] = "/test_dir";
+        int chdir_r = chdir(newcwd);
+
+        getcwd(cwd, MAX_PATH);
+        write(stdout, cwd, strlen(cwd));
+
+        exit(chdir_r);
+    }
+    
     exit(r);
 }

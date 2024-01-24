@@ -67,7 +67,9 @@ static void pageFaultHandler(InterruptStack_t *stack)
         FLUSH_TLB(virtAddr);
 
         if (user)
+        {
             LOG_PROC("Mapped %p to %p\n", virtAddr, frame);
+        }
         else
             LOG("[Kernel] Mapped %p yo %p\n", virtAddr, frame);
     }
@@ -118,9 +120,10 @@ void vmm_init(const Framebuffer_t *fb)
 PageTable_t *vmm_createAddressSpace(PageTable_t *parent)
 {
     PageTable_t *pml4 = vmm_createIdentityPage(parent, VMM_USER_ATTRIBUTES);
-    assert(pml4);
-    memcpy(pml4, parent, PAGE_SIZE);
+    if (!pml4)
+        return NULL;
     
+    memcpy(pml4, parent, PAGE_SIZE);
     return pml4;
 }
 
@@ -305,5 +308,20 @@ void *vmm_createIdentityPage(PageTable_t *pml4, const uint64_t attr)
     vmm_identityMapPage(pml4, frame, attr);
     FLUSH_TLB(frame);
     
+    return frame;
+}
+
+void *vmm_createIdentityPages(PageTable_t *pml4, const uint64_t pages, const uint64_t attr)
+{
+    void *frame = pmm_getFrames(pages);
+    if (!frame)
+        return NULL;
+
+    for (uint64_t i = 0; i < pages; i++)
+    {
+        vmm_identityMapPage(pml4, (void *)((uint64_t)frame + i * PAGE_SIZE), attr);
+        FLUSH_TLB(frame);
+    }
+
     return frame;
 }

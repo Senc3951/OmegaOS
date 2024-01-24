@@ -69,7 +69,7 @@ isr_common:
     mov es, ax
     mov fs, ax
     mov gs, ax
-
+    
     mov rdi, rsp
     call isr_interrupt_handler
     
@@ -83,10 +83,9 @@ isr_common:
     ; restore registers
     popaq
     
-    ; check if should restore rax or not
-    cmp byte [rsp + 8], SYSCALL_INT
+    cmp word [rsp + 8], SYSCALL_INT ; check if should restore rax or not
     je .syscall
-    pop rax         ; restore
+    pop rax                         ; restore rax
     jmp .continue
 .syscall:
     add rsp, 8      ; don't overwrite the return value

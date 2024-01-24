@@ -7,6 +7,8 @@
 int sys_open(const char *path, int flags, int mode)
 {
     LOG_PROC("sys_open path `%s` with flags %d (mode %d)\n", path, flags, mode);
+    if (!path)
+        return -EINVAL;
     
     VfsNode_t *node = vfs_openFile(path, flags);
     if (!node)

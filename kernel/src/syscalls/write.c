@@ -5,6 +5,8 @@
 ssize_t sys_write(uint32_t fd, const void *buf, size_t count)
 {
     LOG_PROC("sys_write to file %u from %p (%llu bytes)\n", fd, buf, count);
+    if (!buf)
+        return -EINVAL;
     if (fd >= _CurrentProcess->fdt->length)
         return -ENOENT;
     

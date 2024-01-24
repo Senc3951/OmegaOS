@@ -15,6 +15,8 @@
 #define SYSCALL_CLOSEDIR    10
 #define SYSCALL_RAISE       11
 #define SYSCALL_SIGNAL      12
+#define SYSCALL_CHDIR       13
+#define SYSCALL_GETCWD      14
 
 /// @brief Stop the current process.
 /// @param status Status to stop with.

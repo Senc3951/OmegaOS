@@ -6,14 +6,14 @@
 
 typedef struct dirent
 {
-    uint32_t ino;
-    char name[MAX_PATH];
+    uint32_t d_ino;
+    char d_name[MAX_PATH];
 } dirent;
 
 typedef struct DIR
 {
-    uint32_t fd;
-    size_t i;
+    uint32_t d_fd;
+    size_t d_currentEntry;
 } DIR;
 
 inline ssize_t read(uint32_t fd, void *buf, size_t count)
@@ -81,4 +81,15 @@ inline int raise(int sig)
 inline int signal(int signum, uint64_t handler)
 {
     return SYSCALL_2(SYSCALL_SIGNAL, signum, handler);
+}
+
+inline int chdir(const char *path)
+{
+    return SYSCALL_1(SYSCALL_CHDIR, (uint64_t)path);
+}
+
+inline char *getcwd(char *buf, size_t size)
+{
+    uint64_t ret = SYSCALL_2(SYSCALL_GETCWD, (uint64_t)buf, size);
+    return (char *)ret;
 }

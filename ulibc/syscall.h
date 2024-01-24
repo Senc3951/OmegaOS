@@ -18,6 +18,8 @@ typedef long ssize_t;
 #define SYSCALL_CLOSEDIR    10
 #define SYSCALL_RAISE       11
 #define SYSCALL_SIGNAL      12
+#define SYSCALL_CHDIR       13
+#define SYSCALL_GETCWD      14
 
 #define SYSCALL_0(n) ({             \
     uint64_t __result;              \

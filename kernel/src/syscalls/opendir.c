@@ -6,6 +6,8 @@
 DIR *sys_opendir(const char *name)
 {
     LOG_PROC("sys_opendir directory `%s`\n", name);
+    if (!name)
+        return NULL;
     
     // Check that the directory exists
     VfsNode_t *node = vfs_openFile(name, 0);
@@ -26,7 +28,7 @@ DIR *sys_opendir(const char *name)
         return NULL;
     }
     
-    dir->i = 0;
+    dir->currentEntry = 0;
     dir->fd = (uint32_t)fd;
     return dir;
 }

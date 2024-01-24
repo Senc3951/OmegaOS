@@ -53,9 +53,10 @@ void scheduler_init()
 
 void scheduler_add(Process_t *process)
 {
-    proc_dump(process);
+    proc_dump(process, "scheduler_add_Start");
     assert(process->priority >= 0 && process->priority < PROCESS_PRIORITIES_COUNT);
     queue_enqueue(g_processQueues[process->priority], process);
+    proc_dump(process, "scheduler_add_Final");
 }
 
 void scheduler_remove(Process_t *process)

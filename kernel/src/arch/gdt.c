@@ -1,8 +1,9 @@
 #include <arch/gdt.h>
 #include <arch/idt.h>
 #include <libc/string.h>
-#include <mem/heap.h>
+#include <mem/vmm.h>
 #include <assert.h>
+#include <logger.h>
 
 typedef struct GDT_BLOCK
 {
@@ -55,17 +56,19 @@ static void setTssRing(size_t i, void *stack)
 
 void tssSetLate()
 {
-    void *kstack = kmalloc(KERNEL_STACK_SIZE);
+    void *kstack = vmm_createIdentityPages(_KernelPML4, KERNEL_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
     assert(kstack);
-    setTssRing(0, kstack);
+    setTssRing(0, (void *)((uint64_t)kstack + KERNEL_STACK_SIZE));
     
-    void *isrStack = kmalloc(KERNEL_STACK_SIZE);
-    assert(isrStack);
-    setTssInterrupt(1, isrStack);
+    void *irqStack = vmm_createIdentityPages(_KernelPML4, KERNEL_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
+    assert(irqStack);
+    setTssInterrupt(1, (void *)((uint64_t)irqStack + KERNEL_STACK_SIZE));
     
-    void *pitStack = kmalloc(KERNEL_STACK_SIZE);
+    void *pitStack = vmm_createIdentityPages(_KernelPML4, KERNEL_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
     assert(pitStack);
-    setTssInterrupt(2, pitStack);
+    setTssInterrupt(2, (void *)((uint64_t)pitStack + KERNEL_STACK_SIZE));
+    
+    LOG("Kernel stack at %p. irq stack at %p. pit stack at %p\n", kstack, irqStack, pitStack);
 }
 
 void gdt_load()

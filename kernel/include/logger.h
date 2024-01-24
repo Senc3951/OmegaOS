@@ -15,7 +15,7 @@
         LOG(__VA_ARGS__);                                                       \
     })
 #else
-    #define LOG_PROC(proc, ...) { }
+    #define LOG_PROC(...) { }
 #endif
 
 /// @brief Print a char.

@@ -97,10 +97,16 @@ typedef struct dirent
 typedef struct DIR
 {
     uint32_t fd;
-    size_t i;
+    size_t currentEntry;
 } DIR;
 
 extern VfsNode_t *_RootFS;
+
+/// @brief Normalize a path.
+/// @param cwd Current working directory.
+/// @param path Path to normalize.
+/// @return Normalized path, NULL, if failed.
+char *normalizePath(char *cwd, const char *path);
 
 /// @brief Get a VfsNode of a file.
 /// @param name Name of the file.

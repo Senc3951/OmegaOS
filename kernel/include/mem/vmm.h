@@ -118,4 +118,11 @@ void *vmm_createPages(PageTable_t *pml4, void *virt, const uint64_t pages, const
 /// @return Virtual address of the page.
 void *vmm_createIdentityPage(PageTable_t *pml4, const uint64_t attr);
 
+/// @brief Create identity mapped pages.
+/// @param pml4 Table to perform the operation on.
+/// @param pages Pages to map.
+/// @param attr Attributes of the page.
+/// @return Physical address of the first page, NULL, if failed.
+void *vmm_createIdentityPages(PageTable_t *pml4, const uint64_t pages, const uint64_t attr);
+
 extern PageTable_t *_KernelPML4;

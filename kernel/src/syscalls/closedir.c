@@ -7,6 +7,8 @@ void sys_closedir(DIR *dirp)
 {
     uint32_t fd = dirp->fd;
     LOG_PROC("sys_closedir directory %u\n", fd);
+    if (!dirp)
+        return;
     
     process_close_file(_CurrentProcess, fd);
     kfree(dirp);

@@ -100,6 +100,8 @@ void pmm_init(MemoryDescriptor_t *mmap, const uint64_t mmapSize, const uint64_t 
         {
             largestMemSegment = desc->numberOfPages;
             largestSegment = desc;
+            
+            LOG("Physical memory region at %p - %p\n", desc->physicalStart, desc->physicalStart + desc->numberOfPages * PAGE_SIZE);
         }
     }
 
