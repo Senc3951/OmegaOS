@@ -124,6 +124,7 @@ Process_t *process_create(const char *name, void *entry, const ProcessPriority_t
         LOG("[REMOVE] failed creating pml4\n");
         return NULL;
     }
+    LOG("[REMOVE] creating stack for process %s\n", name);
     if (!vmm_createPages(pml4, (void *)USER_STACK_START, USER_STACK_SIZE / PAGE_SIZE, VMM_USER_ATTRIBUTES))
     {
         LOG("[REMOVE] failed creating stack\n");

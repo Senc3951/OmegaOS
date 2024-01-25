@@ -54,24 +54,21 @@ static void pageFaultHandler(InterruptStack_t *stack)
 {
     uint64_t virtAddr = READ_CR2();
     uint64_t errCode = stack->errorCode;
+    if (!isUserInterrupt(stack) || !(errCode & PF_USER))
+        panic("Kernel attempted to access an illegal address %p (0x%x)", virtAddr, errCode);
     
     virtAddr = RNDWN(virtAddr, PAGE_SIZE);
     PageTable_t *pml4 = _CurrentProcess->pml4;
-    if (errCode & PF_PRESENT)
+
+    if (errCode & PF_PRESENT || errCode & PF_WRITABLE)
     {
         void *frame = pmm_getFrame();
         assert(frame);
         
-        bool user = errCode & PF_USER;
-        vmm_mapPage(pml4, frame, (void *)virtAddr, user ? VMM_USER_ATTRIBUTES : VMM_KERNEL_ATTRIBUTES);
+        vmm_mapPage(pml4, frame, (void *)virtAddr, VMM_USER_ATTRIBUTES);
         FLUSH_TLB(virtAddr);
 
-        if (user)
-        {
-            LOG_PROC("Mapped %p to %p\n", virtAddr, frame);
-        }
-        else
-            LOG("[Kernel] Mapped %p yo %p\n", virtAddr, frame);
+        LOG_PROC("Mapped %p to %p\n", virtAddr, frame);
     }
     else
     {

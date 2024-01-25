@@ -54,5 +54,5 @@ static void syscallHandler(InterruptStack_t *stack)
 
 void syscalls_init()
 {
-    assert(isr_registerHandler(SYSCALL, syscallHandler));
+    assert(isr_registerHandler(SYSCALL_ISR, syscallHandler));
 }

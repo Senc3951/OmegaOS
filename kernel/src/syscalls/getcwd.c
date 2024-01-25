@@ -4,7 +4,7 @@
 
 char *sys_getcwd(char *buf, size_t size)
 {
-    LOG_PROC("sys_getcwd to buf %p with size %lu\n", buf, size);
+    LOG_PROC("sys_getcwd to %p with size %lu\n", buf, size);
     if (!buf || !size)
         return NULL;
     

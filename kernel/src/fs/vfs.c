@@ -163,6 +163,8 @@ ssize_t vfs_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
         return -EPERM;
     if ((node->flags & FS_FILE) != FS_FILE)
         return -EISDIR;
+    if (!size)
+        return 0;
     
     return node->read(node, offset, size, buffer);
 }
@@ -173,6 +175,8 @@ ssize_t vfs_write(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
         return -EPERM;
     if ((node->flags & FS_FILE) != FS_FILE)
         return -EISDIR;
+    if (!size)
+        return 0;
     
     return node->write(node, offset, size, buffer);
 }

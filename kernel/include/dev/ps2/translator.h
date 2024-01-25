@@ -3,19 +3,16 @@
 #include <common.h>
 
 #define NO_KEY          (-1)
-#define CAPS_KEY        0x58
-#define RELEASED_KEY    0xF0
-#define RIGHT_SHIFT     0x12
-#define LEFT_SHIFT      0x59
-#define BACKSPACE       0x66
-#define BACKTICK        0x0E
-#define TAB             0x0D
+#define LEFT_SHIFT      0x2A
+#define RIGHT_SHIFT     0x36
+#define CAPS_LOCK       0x3A
+#define LEFT_SHIFT_REL  0xAA
+#define RIGHT_SHFIT_REL 0xB6
 #define INVALID_KEY     0xFF
 
-/**
- * @brief Translate a scan code to a character.
- * 
- * @param code Scan code of the character.
- * @return Character pressed.
-*/
-char translate(const uint8_t code);
+/// @brief Translate a scancode to a character.
+/// @param code Scancode of the character.
+/// @param shift Is currently in shift mode.
+/// @param caps Is currently in caps mode.
+/// @return Character pressed.
+char translate(const uint8_t code, const bool shift, const bool caps);

@@ -31,8 +31,10 @@
     res; \
 })
 
-volatile size_t g_bufferSize = 0;
-static char g_buffer[BUFFER_SIZE];
+static bool g_shift = false, g_caps = false;
+
+static size_t g_bufferSize = 0;
+static __ALIGNED__(PAGE_SIZE) char g_buffer[BUFFER_SIZE];
 
 static void interruptHandler(InterruptStack_t *stack)
 {
@@ -44,11 +46,22 @@ static void interruptHandler(InterruptStack_t *stack)
         case 0:
         case INVALID_KEY:
             break;
+        case LEFT_SHIFT:
+        case RIGHT_SHIFT:
+            g_shift = true;
+            break;
+        case LEFT_SHIFT_REL:
+        case RIGHT_SHFIT_REL:
+            g_shift = false;
+            break;
+        case CAPS_LOCK:
+            g_caps = !g_caps;
+            break;
         default:
-            char c = translate(data);
-            if (c != NO_KEY && g_bufferSize < PAGE_SIZE)
+            char c = translate(data, g_shift, g_caps);
+            if (c != NO_KEY && g_bufferSize < BUFFER_SIZE)
                 g_buffer[g_bufferSize++] = c;
-            
+                                    
             break;
     }
 }
@@ -117,21 +130,24 @@ bool ps2_kbd_init()
         return false;
     }
     
-    assert(isr_registerHandler(IRQ_KEYBOARD, interruptHandler));
+    assert(isr_registerHandler(PS2_KBD_ISR, interruptHandler));
     LOG("Initialized the ps2 keyboard\n");
     
     return true;
 }
 
-void ps2_kbd_read(void *buffer, size_t count)
+bool ps2_kbd_read(void *buffer, size_t count)
 {
-    while (count > g_bufferSize)
-        __HALT();
+    if (count > g_bufferSize)
+        return false;
     
-    // Copy the buffer
+    __CLI();
     memcpy(buffer, g_buffer, count);
     g_bufferSize -= count;
-
-    // Reset the buffer
+    
     memcpy(g_buffer, g_buffer + count, g_bufferSize);
+    LOG("");
+    __STI();
+    
+    return true;
 }

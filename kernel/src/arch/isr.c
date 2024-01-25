@@ -8,8 +8,6 @@
 static ISRHandler g_handlers[IDT_ENTRIES] = { 0 };
 static bool g_slaveEnabled = false;
 
-#define USER_INTERRUPT(stack) (stack->cs == GDT_USER_CS && stack->ds == GDT_USER_DS)
-
 bool isr_registerHandler(const uint8_t interrupt, ISRHandler handler)
 {
     if (g_handlers[interrupt])
@@ -44,11 +42,16 @@ extern void isr_interrupt_handler(InterruptStack_t *stack)
         
         g_handlers[intNum](stack);
     }
-    else if (USER_INTERRUPT(stack))
+    else if (isUserInterrupt(stack))
     {
         LOG_PROC("Terminating process because interrupt 0x%x occurred (0x%x).\n", intNum, stack->errorCode);
         sys_exit(0);
     }
     else
         ipanic(stack, "Unhandled interrupt");
+}
+
+bool isUserInterrupt(InterruptStack_t *stack)
+{
+    return stack->cs == GDT_USER_CS && stack->ds == GDT_USER_DS;
 }

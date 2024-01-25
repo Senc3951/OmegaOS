@@ -2,8 +2,6 @@
 
 #include <arch/isr.h>
 
-#define IRQ_KEYBOARD (IRQ0 + 1)
-
 #define KEYBOARD_DATA_PORT          0x60
 #define KEYBOARD_STATUS_PORT        0x64
 #define KEYBOARD_COMMAND_PORT       0x64
@@ -40,4 +38,5 @@ bool ps2_kbd_init();
 /// @brief Read from the keyboard characters.
 /// @param buffer Buffer to write the data to.
 /// @param count Count of characters to read.
-void ps2_kbd_read(void *buffer, size_t count);
+/// @return True if read, False, if there is no avaiable input yet.
+bool ps2_kbd_read(void *buffer, size_t count);

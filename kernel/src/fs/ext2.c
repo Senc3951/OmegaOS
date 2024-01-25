@@ -94,22 +94,15 @@ static Inode_t *readInode(const uint32_t ino)
     uint32_t inodeIndex = (ino - 1) % g_superBlock.s_inodes_per_group;
     uint32_t block = inodeTableStart + inodeIndex / INODES_PER_BLOCK;
     if (!readBlock(block, g_tmpBuf))
-    {
-        LOG("[REMOVE] reading failed. ino %u\n", ino);
         return NULL;
-    }
     
     Inode_t *inode = (Inode_t *)kmalloc(g_superBlock.s_inode_size);
     if (!inode)
-    {
-        LOG("[REMOVE] malloc failed with size %u. ino %u\n", g_superBlock.s_inode_size, ino);
         return NULL;
-    }
     
     uint32_t blockOffset = (inodeIndex % INODES_PER_BLOCK) * g_superBlock.s_inode_size;
     memcpy(inode, g_tmpBuf + blockOffset, g_superBlock.s_inode_size);
-    
-    LOG("[REMOVE] ino %u. mode: %u, flags: %u\n", ino, inode->i_mode, inode->i_flags);
+        
     return inode;
 }
 
@@ -625,10 +618,8 @@ static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
     Inode_t *inode = readInode(ino);
     if (!inode)
         return NULL;
-    
-    LOG("[REMOVE] ino %u. mode: %u, flags: %u\n", ino, inode->i_mode, inode->i_flags);;
+        
     VfsNode_t *node = (VfsNode_t *)kmalloc(sizeof(VfsNode_t));
-    LOG("[REMOVE] ino %u. mode: %u, flags: %u\n", ino, inode->i_mode, inode->i_flags);;
     if (!node)
     {
         kfree(inode);

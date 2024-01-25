@@ -48,3 +48,8 @@ typedef void (*ISRHandler)(InterruptStack_t *stack);
 /// @param handler Handler that will be called on the interrupt.
 /// @return True if successfully registered the interrupt, False, otherwise.
 bool isr_registerHandler(const uint8_t interrupt, ISRHandler handler);
+
+/// @brief Check if an interrupt occurred inside userspace.
+/// @param stack Stack of the interrupt.
+/// @return True if it happened inside the userspace, False, otherwise.
+bool isUserInterrupt(InterruptStack_t *stack);

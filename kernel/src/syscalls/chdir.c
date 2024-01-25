@@ -5,7 +5,7 @@
 
 int sys_chdir(const char *path)
 {
-    LOG_PROC("sys_chdir to path %s\n", path);
+    LOG_PROC("sys_chdir to path `%s`\n", path);
     if (!path)
         return EINVAL;
 

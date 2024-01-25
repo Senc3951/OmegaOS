@@ -7,7 +7,7 @@ ssize_t stdoutWrite(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
 {
     UNUSED(node);
     UNUSED(offset);
-        
+    
     char *buf = (char *)buffer;
     for (size_t i = 0; i < size; i++)
         screen_putc(buf[i]);
@@ -20,8 +20,7 @@ ssize_t stdinRead(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
     UNUSED(node);
     UNUSED(offset);
     
-    ps2_kbd_read(buffer, size);
-    return size;
+    return ps2_kbd_read(buffer, size) ? (ssize_t)size : -1;
 }
 
 VfsNode_t *createStdinNode()
@@ -31,6 +30,7 @@ VfsNode_t *createStdinNode()
         return NULL;
     
     node->flags = FS_FILE;
+    node->attr = O_RDONLY;
     node->read = stdinRead;
     return node;
 }
@@ -42,6 +42,7 @@ VfsNode_t *createStdoutNode()
         return NULL;
 
     node->flags = FS_FILE;
+    node->attr = O_WRONLY;
     node->write = stdoutWrite;
     return node;
 }

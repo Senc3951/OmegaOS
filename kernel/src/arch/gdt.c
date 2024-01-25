@@ -2,8 +2,8 @@
 #include <arch/idt.h>
 #include <libc/string.h>
 #include <mem/vmm.h>
-#include <assert.h>
 #include <logger.h>
+#include <assert.h>
 
 typedef struct GDT_BLOCK
 {
@@ -44,31 +44,35 @@ static void setTSS(const uint8_t i)
 	};
 }
 
-static void setTssInterrupt(uint16_t interrupt, void *stack)
+static void setTssInterrupt(uint16_t interrupt, void *stack, uint64_t stackSize)
 {
-    g_gdtBlock.tss.ist[interrupt - 1] = (uint64_t)stack;
+    g_gdtBlock.tss.ist[interrupt - 1] = (uint64_t)stack + stackSize;
 }
 
-static void setTssRing(size_t i, void *stack)
+static void setTssRing(size_t i, void *stack, uint64_t stackSize)
 {
-    g_gdtBlock.tss.rsp[i] = (uint64_t)stack;
+    g_gdtBlock.tss.rsp[i] = (uint64_t)stack + stackSize;
 }
 
 void tssSetLate()
 {
     void *kstack = vmm_createIdentityPages(_KernelPML4, KERNEL_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
     assert(kstack);
-    setTssRing(0, (void *)((uint64_t)kstack + KERNEL_STACK_SIZE));
+    setTssRing(0, kstack, KERNEL_STACK_SIZE);
     
     void *irqStack = vmm_createIdentityPages(_KernelPML4, KERNEL_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
     assert(irqStack);
-    setTssInterrupt(1, (void *)((uint64_t)irqStack + KERNEL_STACK_SIZE));
+    setTssInterrupt(IRQ_IST, irqStack, KERNEL_STACK_SIZE);
     
     void *pitStack = vmm_createIdentityPages(_KernelPML4, KERNEL_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
     assert(pitStack);
-    setTssInterrupt(2, (void *)((uint64_t)pitStack + KERNEL_STACK_SIZE));
+    setTssInterrupt(PIT_IST, pitStack, KERNEL_STACK_SIZE);
     
-    LOG("Kernel stack at %p. irq stack at %p. pit stack at %p\n", kstack, irqStack, pitStack);
+    void *ps2Stack = vmm_createIdentityPages(_KernelPML4, KERNEL_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
+    assert(ps2Stack);
+    setTssInterrupt(PS2_KBD_IST, ps2Stack, KERNEL_STACK_SIZE);
+    
+    LOG("TSS Stacks. Kernel at %p, irq at %p, pit at %p, ps2 at %p\n", kstack, irqStack, pitStack, ps2Stack);
 }
 
 void gdt_load()

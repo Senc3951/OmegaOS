@@ -49,9 +49,9 @@ extern int _entry(BootInfo_t *bootInfo)
     // Initialize interrupts
     gdt_load();
     idt_load();
+    pic_disable();
     dev_init();
     pic_init(IRQ0, IRQ0 + 8, false);
-    pic_disable();
     __STI();
     
     // Initialize filesystem
@@ -62,7 +62,7 @@ extern int _entry(BootInfo_t *bootInfo)
     syscalls_init();        // Initialize syscalls
     process_init();         // Initialize process management
     scheduler_init();       // Initialize the scheduler
-    
+
     extern void shell();
     assert(process_create("Shell", shell, PriorityInteractive));
     

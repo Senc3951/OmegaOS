@@ -19,7 +19,7 @@ extern uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableE
 #define IRQ_SLAVE               2
 #define IRQ0                    0x20
 #define IRQ15                   0x2F
-#define SYSCALL                 0x80
+#define SYSCALL_ISR             0x80
 
 #define PAGE_SIZE               4096ULL
 
