@@ -35,13 +35,9 @@ static bool createStandardFiles(Process_t *process)
 
 static Process_t *createProcess(const char *name, PageTable_t *addressSpace, void *entry, const ProcessPriority_t priority, void *stackButtom, uint64_t stackSize, const uint64_t cs, const uint64_t ds)
 {
-    LOG("[REMOVE] Creating process %s with entry %p, priority: %u\n", name, entry, priority);
     Process_t *process = (Process_t *)kmalloc(sizeof(Process_t));
     if (!process)
-    {
         return NULL;
-        LOG("[REMOVE] Failed creating process %s with entry %p\n", name, entry);
-    }
     
     process->pml4 = addressSpace;
     strncpy(process->name, name, MAX_PROCESS_NAME);
@@ -59,9 +55,7 @@ static Process_t *createProcess(const char *name, PageTable_t *addressSpace, voi
     process->ctx.stackSize = stackSize;
     process->priority = (short)priority;
     process->id = getNextID();
-    
-    proc_dump(process, "createProcess_Start");
-    
+        
     // Signal queue
     memset(process->sigtb, 0, sizeof(process->sigtb));
     if (!(process->sigQueue = queue_create()))
@@ -84,17 +78,8 @@ static Process_t *createProcess(const char *name, PageTable_t *addressSpace, voi
         return NULL;
     }
     
-    LOG("Created process `%s` with id %u. entry at %p, stack at %p - %p\n", process->name, process->id, process->ctx.rip, process->ctx.stackButtom, process->ctx.stackButtom + stackSize);
-    proc_dump(process, "createProcess_Final");
-    
+    LOG("Created process `%s` with id %u. entry at %p, stack at %p - %p\n", process->name, process->id, process->ctx.rip, process->ctx.stackButtom, process->ctx.stackButtom + stackSize);    
     return process;
-}
-
-void proc_dump(Process_t *p, char *n)
-{
-    LOG("-------- DUMPING PROCESS %s/%u from function %s -------\n", p->name, p->id, n);
-    LOG("CWD: `%s`, PML4: %p, Priority: %d, TreeNode: %p\n", p->cwd, p->pml4, p->priority, p->treeNode);
-    LOG("Stack: %p, Stack Size: %u, Entry: %p\n\n", p->ctx.stackButtom, p->ctx.stackSize, p->ctx.rip);
 }
 
 Process_t *process_init()
@@ -146,9 +131,7 @@ Process_t *process_create(const char *name, void *entry, const ProcessPriority_t
     tree_insert(g_processTree, g_processTree->root, process->treeNode);
     
     // Notify the scheduler about the process
-    scheduler_add(process);
-    proc_dump(process, "process_create_Final");
-    
+    scheduler_add(process);    
     return process;
 }
 

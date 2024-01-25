@@ -173,7 +173,7 @@ static size_t memory_chunk_size(const Chunk_t *chunk)
 static int memory_chunk_slot(size_t size)
 {
     int n = -1;
-    while(size > 0)
+    while (size > 0)
     {
         ++n;
         size /= 2;
@@ -231,6 +231,8 @@ __MALLOC__ void *kmalloc(size_t size)
     int n = memory_chunk_slot(size - 1) + 1;
     if (n >= NUM_SIZES)
     {
+        LOG("HEAP failed at memory_chunk_slot with n=%d, size=%lu\n", n, size);
+        
         lock_release(&g_lock);
         return NULL;
     }
@@ -240,6 +242,8 @@ __MALLOC__ void *kmalloc(size_t size)
         ++n;
         if (n >= NUM_SIZES)
         {
+            LOG("HEAP failed at while loop with n=%d, size=%lu\n", n, size);
+
             lock_release(&g_lock);
             return NULL;
         }

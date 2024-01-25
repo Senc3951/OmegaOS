@@ -58,8 +58,6 @@ Process_t *process_init();
 /// @return Created process.
 Process_t *process_create(const char *name, void *entry, const ProcessPriority_t priority);
 
-void proc_dump(Process_t *p, char *n);
-
 /// @brief Delete a process.
 /// @param process Process to delete.
 void process_delete(Process_t *process);

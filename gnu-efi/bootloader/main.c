@@ -38,6 +38,7 @@ typedef struct BOOT_INFO
 	EFI_MEMORY_DESCRIPTOR *mmap;
 	UINTN mmapSize;
 	UINTN mmapDescriptorSize;
+	VOID *rsdp;
 } BootInfo_t;
 
 static EFI_HANDLE g_imageHandle;
@@ -233,7 +234,22 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	g_systemTable->BootServices->AllocatePool(EfiLoaderData, mapSize, (VOID **)&mmap);
 	g_systemTable->BootServices->GetMemoryMap(&mapSize, mmap, &mapKey, &descriptorSize, &descriptorVersion);
 
-	BootInfo_t bootInfo = { .fb = fb, .font = font, .mmap = mmap, .mmapSize = mapSize, .mmapDescriptorSize = descriptorSize };
+	EFI_CONFIGURATION_TABLE *configTable = g_systemTable->ConfigurationTable;
+	void *rsdp = NULL;
+	EFI_GUID ACPI2TableGuid = ACPI_20_TABLE_GUID;
+	for (UINTN index = 0; index < g_systemTable->NumberOfTableEntries; index++)
+	{
+		if (CompareGuid(&configTable[index].VendorGuid, &ACPI2TableGuid))
+		{
+			if (strcmp((CHAR8 *)"RSD PTR ", (CHAR8 *)configTable->VendorTable, 8))
+				rsdp = configTable->VendorTable;
+		}
+		
+		configTable++;
+	}
+	ASSERT(rsdp);
+
+	BootInfo_t bootInfo = { .fb = fb, .font = font, .mmap = mmap, .mmapSize = mapSize, .mmapDescriptorSize = descriptorSize, .rsdp = rsdp };
 	Print(L"Starting OS\n\r");
 	g_systemTable->BootServices->ExitBootServices(g_imageHandle, mapKey);
 		

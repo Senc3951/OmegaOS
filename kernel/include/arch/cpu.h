@@ -1,6 +1,7 @@
 #pragma once
 
 #include <common.h>
+#include <cpuid.h>
 
 /// @brief Read the cr0 register.
 #define READ_CR0() ({                               \
@@ -22,3 +23,15 @@
     asm volatile("mov %%cr3, %0" : "=r"(cr3));      \
     cr3;                                            \
 })
+
+/// @brief Read MSR.
+/// @param msr msr to read.
+/// @param lo low part.
+/// @param hi high part.
+void __rdmsr(uint32_t msr, uint32_t *lo, uint32_t *hi);
+
+/// @brief Write MSR.
+/// @param msr msr to write.
+/// @param lo low part.
+/// @param hi high part.
+void __wrmsr(uint32_t msr, uint32_t lo, uint32_t hi);

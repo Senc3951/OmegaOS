@@ -7,6 +7,10 @@
 #include <arch/gdt.h>
 #include <arch/idt.h>
 #include <arch/pic.h>
+#include <arch/rsdp.h>
+#include <arch/apic/madt.h>
+#include <arch/apic/apic.h>
+#include <arch/apic/ioapic.h>
 #include <mem/pmm.h>
 #include <mem/vmm.h>
 #include <mem/heap.h>
@@ -30,7 +34,7 @@ void dev_init()
 extern int _entry(BootInfo_t *bootInfo)
 {
     __CLI();
-    eassert(bootInfo && bootInfo->fb && bootInfo->font && bootInfo->mmap);
+    eassert(bootInfo && bootInfo->fb && bootInfo->font && bootInfo->mmap && bootInfo->rsdp);
     eassert(serial_init());
     
     _KernelStart = (uint64_t)&_kernel_start;
@@ -53,6 +57,12 @@ extern int _entry(BootInfo_t *bootInfo)
     dev_init();
     pic_init(IRQ0, IRQ0 + 8, false);
     __STI();
+
+    // Initialize other cores
+    rsdp_init(bootInfo->rsdp);
+    madt_init();
+    apic_init();
+    ioapic_init();
     
     // Initialize filesystem
     ide_init(ATA_DEVICE);   // Initialize disk controller

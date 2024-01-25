@@ -47,4 +47,5 @@ typedef struct BOOT_INFO
 	MemoryDescriptor_t *mmap;
 	uint64_t mmapSize;
 	uint64_t mmapDescriptorSize;
+    void *rsdp;
 } __PACKED__ BootInfo_t;
