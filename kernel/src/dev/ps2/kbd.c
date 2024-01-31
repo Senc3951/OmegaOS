@@ -68,6 +68,8 @@ static void interruptHandler(InterruptStack_t *stack)
 
 bool ps2_kbd_init()
 {
+    assert(isr_registerHandler(PS2_KBD_ISR, interruptHandler));
+    
     // Disable device
     WRITE_COMMAND(CONTROLLER_DISABLE_1);
     WRITE_COMMAND(CONTROLLER_DISABLE_2);
@@ -130,9 +132,7 @@ bool ps2_kbd_init()
         return false;
     }
     
-    assert(isr_registerHandler(PS2_KBD_ISR, interruptHandler));
-    LOG("Initialized the ps2 keyboard\n");
-    
+    LOG("Initialized the ps2 keyboard\n");    
     return true;
 }
 

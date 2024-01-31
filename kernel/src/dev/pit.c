@@ -27,7 +27,7 @@ static void interruptHandler(InterruptStack_t *stack)
 
 void pit_init(const uint16_t frequency)
 {
-    assert(isr_registerHandler(PIT_ISR, interruptHandler));
+    assert(isr_registerHandler(TIMER_ISR, interruptHandler));
     
     uint16_t freq = 0x1234DE / frequency;
     if ((0x1234DE % frequency) > (frequency / 2))

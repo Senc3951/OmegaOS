@@ -73,16 +73,6 @@ inline void closedir(DIR *dirp)
     SYSCALL_1(SYSCALL_CLOSEDIR, (uint64_t)dirp);
 }
 
-inline int raise(int sig)
-{
-    return SYSCALL_1(SYSCALL_RAISE, sig);
-}
-
-inline int signal(int signum, uint64_t handler)
-{
-    return SYSCALL_2(SYSCALL_SIGNAL, signum, handler);
-}
-
 inline int chdir(const char *path)
 {
     return SYSCALL_1(SYSCALL_CHDIR, (uint64_t)path);

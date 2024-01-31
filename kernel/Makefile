@@ -13,7 +13,7 @@ OBJ_C_FILES = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC_C_FILES))
 AFLAGS += -Wall
 CFLAGS += -I $(INC_DIR) -I $(LIBC_DIR) -ffreestanding -nostdlib -mno-red-zone -fstack-protector-strong \
 	-Wall -Wextra -fshort-wchar -Wno-implicit-fallthrough -Wno-int-to-pointer-cast \
-	-Wno-address-of-packed-member
+	-Wno-address-of-packed-member -Wno-format -Wno-maybe-uninitialized
 LFLAGS += -T $(LINKER_FILE) -static -Bsymbolic -z text -z noexecstack
 
 .PHONY: build setup clean

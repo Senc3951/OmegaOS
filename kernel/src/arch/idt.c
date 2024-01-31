@@ -39,8 +39,8 @@ void idt_load()
         else
             setEntry(i, interruptHandlers[i], GDT_KERNEL_CS, IDT_TRAP_TYPE0, IRQ_IST);
     }
-       
-    setAttributes(PIT_ISR, PIT_IST, 0);
+    
+    setAttributes(TIMER_ISR, PIT_IST, 0);
     setAttributes(PS2_KBD_ISR, PS2_KBD_IST, 0);
     setAttributes(SYSCALL_ISR, 0, IDT_INTERRUPT_TYPE3);
     

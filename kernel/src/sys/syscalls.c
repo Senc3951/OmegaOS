@@ -15,8 +15,6 @@ extern int sys_lseek(uint32_t fd, long offset, int whence);
 extern DIR *sys_opendir(const char *name);
 extern struct dirent *sys_readdir(DIR *dirp);
 extern void sys_closedir(DIR *dirp);
-extern int sys_raise(int sig);
-extern int sys_signal(int signum, uint64_t handler);
 extern int sys_chdir(const char *path);
 extern char *sys_getcwd(char *buf, size_t size);
 
@@ -34,8 +32,6 @@ static syscall_func_t g_syscalls[] =
     [SYSCALL_OPENDIR]   = (syscall_func_t)(uint64_t)sys_opendir,
     [SYSCALL_READDIR]   = (syscall_func_t)(uint64_t)sys_readdir,
     [SYSCALL_CLOSEDIR]  = (syscall_func_t)(uint64_t)sys_closedir,
-    [SYSCALL_RAISE]     = (syscall_func_t)(uint64_t)sys_raise,
-    [SYSCALL_SIGNAL]    = (syscall_func_t)(uint64_t)sys_signal,
     [SYSCALL_CHDIR]     = (syscall_func_t)(uint64_t)sys_chdir,
     [SYSCALL_GETCWD]    = (syscall_func_t)(uint64_t)sys_getcwd
 };

@@ -11,15 +11,6 @@
     x64_context_switch(&process->ctx);  \
 })
 
-#define SWITCH_PROCESS_FAST(process) ({     \
-    x64_context_switch_fast(&process->ctx); \
-})
-
-#define ENTER_SIGNAL(process, sig) ({       \
-    vmm_switchTable(process->pml4);         \
-    x64_switch_signal(&process->ctx, sig);  \
-})
-
 extern void x64_context_switch(Context_t *ctx);
 extern void x64_context_switch_fast(Context_t *ctx);
 extern void x64_switch_signal(Context_t *ctx, uint64_t handler);
@@ -66,16 +57,7 @@ void scheduler_remove(Process_t *process)
 void yield()
 {
     _CurrentProcess = getNextProcess();
-    signal_t *sig;
-    
-    if ((sig = (signal_t *)queue_deqeueue(_CurrentProcess->sigQueue)) && _CurrentProcess->sigtb[sig->num])
-    {
-        ENTER_SIGNAL(_CurrentProcess, sig->handler);
-        kfree(sig);
-        SWITCH_PROCESS_FAST(_CurrentProcess);
-    }
-    else
-        SWITCH_PROCESS(_CurrentProcess);
+    SWITCH_PROCESS(_CurrentProcess);
 }
 
 void yield_cs(InterruptStack_t *stack)

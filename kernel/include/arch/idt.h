@@ -8,9 +8,6 @@
 #define PIT_IST     2
 #define PS2_KBD_IST 3
 
-#define PIT_ISR     IRQ0
-#define PS2_KBD_ISR (PIT_ISR + 1)
-
 /// @brief Entry in the IDT.
 typedef struct IDT_ENTRY
 {

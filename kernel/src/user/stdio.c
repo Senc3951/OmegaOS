@@ -1,10 +1,17 @@
 #include <stdio.h>
-#include <string.h>
+#include <libc/string.h>
+#include <gui/printf.h>
 #include <unistd.h>
 
 FILE _stdin  = { .fd = 0 };
 FILE _stdout = { .fd = 1 };
 FILE _stderr = { .fd = 2 };
+
+static void printf_putc(char c, void *ext)
+{
+    (void)ext;
+    putc(c, stdout);
+}
 
 int getc(FILE *file)
 {
@@ -26,6 +33,9 @@ int getchar()
 
 char *gets(char *buf)
 {
+    if (!buf)
+        return NULL;
+    
     size_t i = 0;
     char c;
     
@@ -58,5 +68,18 @@ int putchar(const int c)
 
 int puts(const char *s)
 {
+    if (!s)
+        return -1;
+    
     return write(_stdout.fd, s, strlen(s));
+}
+
+int printf(const char *fmt, ...)
+{
+    va_list va;
+    va_start(va, fmt);
+    int r = vfctprintf(&printf_putc, NULL, fmt, va);
+    va_end(va);
+
+    return r;
 }

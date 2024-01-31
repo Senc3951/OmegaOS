@@ -23,3 +23,4 @@ char *gets(char *buf);
 int putc(const int c, FILE *file);
 int putchar(const int c);
 int puts(const char *s);
+int printf(const char *fmt, ...);

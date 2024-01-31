@@ -54,16 +54,8 @@ static Process_t *createProcess(const char *name, PageTable_t *addressSpace, voi
     process->ctx.ss = ds;
     process->ctx.stackSize = stackSize;
     process->priority = (short)priority;
-    process->id = getNextID();
-        
-    // Signal queue
-    memset(process->sigtb, 0, sizeof(process->sigtb));
-    if (!(process->sigQueue = queue_create()))
-    {
-        process_delete(process);
-        return NULL;
-    } 
-
+    process->id = getNextID(); 
+    
     // Open files
     if (!(process->fdt = list_create()))
     {
@@ -163,15 +155,6 @@ void process_delete(Process_t *process)
         list_destroy(process->fdt);
         list_free(process->fdt);  
         kfree(process->fdt);
-    }
-
-    // Close all signals
-    if (process->sigQueue)
-    {
-        signal_t *sig;
-        while ((sig = (signal_t *)queue_deqeueue(process->sigQueue)))
-            kfree(sig);
-        kfree(process->sigQueue);
     }
     
     kfree(process);

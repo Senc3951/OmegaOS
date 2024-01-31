@@ -40,8 +40,6 @@ typedef struct PROCESS
     PageTable_t *pml4;
     TreeNode_t *treeNode;
     list_t *fdt;
-    uint64_t sigtb[SIG_COUNT];
-    Queue_t *sigQueue;
     char name[MAX_PROCESS_NAME];
     char cwd[FS_MAX_PATH];
 #define parent_proc treeNode->parent->value

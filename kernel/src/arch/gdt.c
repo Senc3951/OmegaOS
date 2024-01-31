@@ -64,15 +64,15 @@ void tssSetLate()
     assert(irqStack);
     setTssInterrupt(IRQ_IST, irqStack, KERNEL_STACK_SIZE);
     
-    void *pitStack = vmm_createIdentityPages(_KernelPML4, KERNEL_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
-    assert(pitStack);
-    setTssInterrupt(PIT_IST, pitStack, KERNEL_STACK_SIZE);
+    void *timerStack = vmm_createIdentityPages(_KernelPML4, KERNEL_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
+    assert(timerStack);
+    setTssInterrupt(PIT_IST, timerStack, KERNEL_STACK_SIZE);
     
     void *ps2Stack = vmm_createIdentityPages(_KernelPML4, KERNEL_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
     assert(ps2Stack);
     setTssInterrupt(PS2_KBD_IST, ps2Stack, KERNEL_STACK_SIZE);
     
-    LOG("TSS Stacks. Kernel at %p, irq at %p, pit at %p, ps2 at %p\n", kstack, irqStack, pitStack, ps2Stack);
+    LOG("TSS Stacks. Kernel at %p, irq at %p, pit at %p, ps2 at %p\n", kstack, irqStack, timerStack, ps2Stack);
 }
 
 void gdt_load()

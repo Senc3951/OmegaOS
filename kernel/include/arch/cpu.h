@@ -35,3 +35,13 @@ void __rdmsr(uint32_t msr, uint32_t *lo, uint32_t *hi);
 /// @param lo low part.
 /// @param hi high part.
 void __wrmsr(uint32_t msr, uint32_t lo, uint32_t hi);
+
+/// @brief Read the time-stamp counter.
+/// @return Time-Stamp counter.
+inline uint64_t __rdtsc()
+{
+    uint32_t low, high;
+    asm volatile("rdtsc" : "=a"(low), "=d"(high));
+    
+    return ((uint64_t)high << 32) | low;
+}
