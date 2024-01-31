@@ -1,6 +1,8 @@
 #include <arch/isr.h>
 #include <arch/pic.h>
 #include <arch/gdt.h>
+#include <arch/apic/apic.h>
+#include <arch/apic/ioapic.h>
 #include <sys/syscalls.h>
 #include <panic.h>
 #include <logger.h>
@@ -10,25 +12,25 @@ static bool g_slaveEnabled = false;
 
 bool isr_registerHandler(const uint8_t interrupt, ISRHandler handler)
 {
-    if (g_handlers[interrupt])
-        return false;
-
     g_handlers[interrupt] = handler;
-    LOG("Registered a handler for interrupt %u\n", interrupt);
-    
-    // Prepare IRQ interrupt if necessary
     if (interrupt >= IRQ0 && interrupt <= IRQ15)
     {
         uint64_t irqNum = interrupt - IRQ0;
-        if (!g_slaveEnabled && irqNum >= 8)
+        if (_ApicInitialized)
+            ioapic_map_irq(irqNum, interrupt, false);
+        else
         {
-            pic_unmask(IRQ_SLAVE);
-            g_slaveEnabled = true;
+            if (!g_slaveEnabled && irqNum >= 8)
+            {
+                pic_unmask(IRQ_SLAVE);
+                g_slaveEnabled = true;
+            }
+            
+            pic_unmask(irqNum);
         }
-        
-        pic_unmask(irqNum);
     }
     
+    LOG("Registered a handler for interrupt %u\n", interrupt);
     return true;
 }
 
@@ -38,7 +40,12 @@ extern void isr_interrupt_handler(InterruptStack_t *stack)
     if (g_handlers[intNum])
     {
         if (intNum >= IRQ0 && intNum <= IRQ15)
-            pic_sendEOI(intNum - IRQ0);
+        {
+            if (_ApicInitialized)
+                apic_send_eoi();
+            else
+                pic_sendEOI(intNum - IRQ0);
+        }
         
         g_handlers[intNum](stack);
     }

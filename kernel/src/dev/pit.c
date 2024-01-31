@@ -1,7 +1,8 @@
 #include <dev/pit.h>
-#include <io/io.h>
+#include <arch/apic/apic.h>
 #include <arch/isr.h>
 #include <sys/scheduler.h>
+#include <io/io.h>
 #include <assert.h>
 #include <logger.h>
 
@@ -27,6 +28,9 @@ static void interruptHandler(InterruptStack_t *stack)
 
 void pit_init(const uint16_t frequency)
 {
+    if (_ApicInitialized)
+        return;
+    
     assert(isr_registerHandler(TIMER_ISR, interruptHandler));
     
     uint16_t freq = 0x1234DE / frequency;

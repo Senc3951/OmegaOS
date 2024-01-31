@@ -11,6 +11,7 @@
 #include <arch/apic/madt.h>
 #include <arch/apic/apic.h>
 #include <arch/apic/ioapic.h>
+#include <arch/apic/timer.h>
 #include <mem/pmm.h>
 #include <mem/vmm.h>
 #include <mem/heap.h>
@@ -29,6 +30,7 @@ void dev_init()
 {
     pit_init(PIT_DEFAULT_FREQUENCY);
     assert(ps2_kbd_init());
+    lapic_timer_init();
 }
 
 extern int _entry(BootInfo_t *bootInfo)
@@ -54,15 +56,17 @@ extern int _entry(BootInfo_t *bootInfo)
     gdt_load();
     idt_load();
     pic_disable();
+
+    // Initialize APIC
+    rsdp_init(bootInfo->rsdp);
+    madt_init();
+    //apic_init();
+    //ioapic_init();
+    
+    // Initialize devices
     dev_init();
     pic_init(IRQ0, IRQ0 + 8, false);
     __STI();
-
-    // Initialize other cores
-    rsdp_init(bootInfo->rsdp);
-    madt_init();
-    apic_init();
-    ioapic_init();
     
     // Initialize filesystem
     ide_init(ATA_DEVICE);   // Initialize disk controller
