@@ -75,6 +75,6 @@ uint32_t apic_read_register(const uint32_t offset);
 void apic_write_register(const uint32_t offset, const uint32_t value);
 
 /// @brief Send an eoi to the apic.
-void apic_send_eoi();
+void apic_eoi();
 
 extern bool _ApicInitialized;   /* Is APIC initialized. */

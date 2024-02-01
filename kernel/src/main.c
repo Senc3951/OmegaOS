@@ -28,9 +28,11 @@ uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd;
 
 void dev_init()
 {
-    pit_init(PIT_DEFAULT_FREQUENCY);
     assert(ps2_kbd_init());
-    lapic_timer_init();
+    if (_ApicInitialized)
+        lapic_timer_init();
+    else
+        pit_init(PIT_DEFAULT_FREQUENCY);
 }
 
 extern int _entry(BootInfo_t *bootInfo)
@@ -56,16 +58,16 @@ extern int _entry(BootInfo_t *bootInfo)
     gdt_load();
     idt_load();
     pic_disable();
-
-    // Initialize APIC
+    pic_init(IRQ0, IRQ0 + 8, false);
+    
+    // Initialize APIC & I/O APIC
     rsdp_init(bootInfo->rsdp);
     madt_init();
     //apic_init();
-    //ioapic_init();
+    ioapic_init();
     
     // Initialize devices
     dev_init();
-    pic_init(IRQ0, IRQ0 + 8, false);
     __STI();
     
     // Initialize filesystem
@@ -79,9 +81,11 @@ extern int _entry(BootInfo_t *bootInfo)
 
     extern void shell();
     assert(process_create("Shell", shell, PriorityInteractive));
-    
     LOG("Kernel initialization finished. Jumping to user space\n\n");
-    yield();                // Start executing processes
+    
+    // Launch the timer, and start executing processes
+    lapic_timer_start(TIMER_ISR);
+    yield(NULL);
     
     panic("Unreachable");
 }

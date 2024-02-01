@@ -226,24 +226,20 @@ __MALLOC__ void *kmalloc(size_t size)
     size = (size + ALIGN - 1) & (~(ALIGN - 1));
     if (size < MIN_SIZE)
         size = MIN_SIZE;
-
+    
     lock_acquire(&g_lock);
     int n = memory_chunk_slot(size - 1) + 1;
     if (n >= NUM_SIZES)
-    {
-        LOG("HEAP failed at memory_chunk_slot with n=%d, size=%lu\n", n, size);
-        
+    {        
         lock_release(&g_lock);
         return NULL;
     }
-
+    
     while (!g_freeChunks[n])
     {
         ++n;
         if (n >= NUM_SIZES)
         {
-            LOG("HEAP failed at while loop with n=%d, size=%lu\n", n, size);
-
             lock_release(&g_lock);
             return NULL;
         }

@@ -1,5 +1,4 @@
 #include <dev/pit.h>
-#include <arch/apic/apic.h>
 #include <arch/isr.h>
 #include <sys/scheduler.h>
 #include <io/io.h>
@@ -8,31 +7,27 @@
 
 #define TIME 10
 
-volatile size_t g_CountDown;
-volatile size_t g_test = TIME;
+volatile size_t g_countDown, g_timeTillCS;
 
 static void interruptHandler(InterruptStack_t *stack)
 {
     if (_CurrentProcess)
     {
-        g_test--;
-        if (g_test == 0)
+        g_timeTillCS--;
+        if (g_timeTillCS == 0)
         {
-            g_test = TIME;
-            yield_cs(stack);
+            g_timeTillCS = TIME;
+            
+            Process_t *next = dispatch(stack);
+            yield(next);
         }
     }
-    
-    g_CountDown--;
+        
+    g_countDown--;
 }
 
 void pit_init(const uint16_t frequency)
 {
-    if (_ApicInitialized)
-        return;
-    
-    assert(isr_registerHandler(TIMER_ISR, interruptHandler));
-    
     uint16_t freq = 0x1234DE / frequency;
     if ((0x1234DE % frequency) > (frequency / 2))
         freq++;
@@ -45,12 +40,15 @@ void pit_init(const uint16_t frequency)
     outb(PIT_CHANNEL_0, freq & 0xFF);               // Low byte
     __IO_WAIT();
     outb(PIT_CHANNEL_0, (freq & 0xFF00) >> 8);      // High byte
-    __IO_WAIT();    
+    __IO_WAIT();
+    
+    assert(isr_registerHandler(TIMER_ISR, interruptHandler));
+    LOG("PIT timer initialized\n");
 }
 
-void sleep(const size_t milliseconds)
+void pit_sleep(const size_t milliseconds)
 {
-    g_CountDown = milliseconds;
-    while (g_CountDown > 0)
-        __HALT();
+    g_countDown = milliseconds;
+    while (g_countDown > 0)
+        __PAUSE();
 }

@@ -17,11 +17,13 @@ void scheduler_add(Process_t *process);
 void scheduler_remove(Process_t *process);
 
 /// @brief Switch a process.
-void yield();
+/// @param process Process to switch to.
+void yield(Process_t *process);
 
 /// @brief Switch a process.
 /// @param stack Stack before switching the process.
-void yield_cs(InterruptStack_t *stack);
+/// @return New process.
+Process_t *dispatch(InterruptStack_t *stack);
 
 extern Process_t *_CurrentProcess;  /* Current running process. */
 extern Process_t *_IdleProcess;     /* Init process. */

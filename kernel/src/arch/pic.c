@@ -77,7 +77,7 @@ void pic_unmask(uint8_t irq)
     outb(port, value);
 }
 
-void pic_sendEOI(const uint8_t irq)
+void pic_eoi(const uint8_t irq)
 {
     if (irq >= 8)
         outb(PIC2_COMMAND, PIC_EOI);

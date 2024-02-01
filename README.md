@@ -13,8 +13,7 @@ x86_64 UEFI-based operating system built from scratch.
 - [x] Process management
 - [x] User space
 - [x] Shell
-- [x] APIC & I/O APIC
-- [ ] APIC Timer
+- [x] APIC
 - [ ] SMP
 - [ ] USB
 - [ ] Network

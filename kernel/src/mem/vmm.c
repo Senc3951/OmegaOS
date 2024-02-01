@@ -72,8 +72,8 @@ static void pageFaultHandler(InterruptStack_t *stack)
     }
     else
     {
-        LOG_PROC("Terminating process because it attempted to access an illegal address %p (0x%x)\n", virtAddr, errCode);
         sys_exit(0);
+        LOG_PROC("Terminated process because it attempted to access an illegal address %p (0x%x)\n", virtAddr, errCode);
     }
 }
 

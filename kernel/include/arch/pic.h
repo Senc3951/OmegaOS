@@ -51,4 +51,4 @@ void pic_unmask(uint8_t irq);
 
 /// @brief Send EOI after end of interrupt.
 /// @param irq Interrupt to send the EOI to.
-void pic_sendEOI(const uint8_t irq);
+void pic_eoi(const uint8_t irq);

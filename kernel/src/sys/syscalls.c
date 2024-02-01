@@ -41,8 +41,8 @@ static void syscallHandler(InterruptStack_t *stack)
     uint64_t num = stack->rax;
     if (!g_syscalls[num])
     {
-        LOG_PROC("Terminating process because received an invalid syscall (%llu)\n", num);
         sys_exit(0);
+        LOG_PROC("Terminated process because received an invalid syscall (%llu)\n", num);
     }
         
     stack->rax = g_syscalls[num](stack->rdi, stack->rsi, stack->rdx, stack->r10, stack->r8, stack->r9);

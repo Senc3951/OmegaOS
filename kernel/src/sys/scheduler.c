@@ -12,8 +12,6 @@
 })
 
 extern void x64_context_switch(Context_t *ctx);
-extern void x64_context_switch_fast(Context_t *ctx);
-extern void x64_switch_signal(Context_t *ctx, uint64_t handler);
 
 Process_t *_CurrentProcess = NULL, *_IdleProcess = NULL;
 static Queue_t **g_processQueues = NULL;
@@ -54,13 +52,17 @@ void scheduler_remove(Process_t *process)
     queue_remove(g_processQueues[process->priority], process);
 }
 
-void yield()
+void yield(Process_t *process)
 {
-    _CurrentProcess = getNextProcess();
+    if (process)
+        _CurrentProcess = process;
+    else
+        _CurrentProcess = getNextProcess();
+        
     SWITCH_PROCESS(_CurrentProcess);
 }
 
-void yield_cs(InterruptStack_t *stack)
+Process_t *dispatch(InterruptStack_t *stack)
 {
     _CurrentProcess->ctx.rip = stack->rip;
     _CurrentProcess->ctx.cs = stack->cs;
@@ -84,5 +86,5 @@ void yield_cs(InterruptStack_t *stack)
     _CurrentProcess->ctx.r15 = stack->r15;   
     
     queue_enqueue(g_processQueues[_CurrentProcess->priority], _CurrentProcess);
-    yield();
+    return getNextProcess();
 }

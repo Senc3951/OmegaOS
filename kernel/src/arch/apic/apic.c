@@ -8,6 +8,7 @@
 #define IA32_APIC_BASE_MSR      0x1B
 #define APIC_SOFTWARE_ENABLE    (1 << 8)
 #define CPUID_FEAT_EDX_APIC     (1 << 9)
+#define CPUID_FEAT_ECX_X2APIC   (1 << 21)
 #define IA32_APIC_MSR_ENABLE    (1 << 11)
 #define LAPIC_NMI               (4 << 8)
 #define MSR_APICBASE_ADDRMASK   0x000ffffffffff000ULL
@@ -52,7 +53,7 @@ void apic_write_register(const uint32_t offset, const uint32_t value)
     *(volatile uint32_t *)(_MADT.lapic + offset) = value;
 }
 
-void apic_send_eoi()
+void apic_eoi()
 {
     apic_write_register(LAPIC_EOI, 0);
 }
@@ -75,12 +76,21 @@ void apic_disable()
 void apic_init()
 {
     // Verify APIC is supported
-    uint32_t unused, edx, lo, hi;
-    if (!(__get_cpuid(1, &unused, &unused, &unused, &edx) && (edx & CPUID_FEAT_EDX_APIC)))
+    uint32_t unused, ecx, edx, lo, hi;
+    if (!__get_cpuid(1, &unused, &unused, &ecx, &edx))
     {
-        LOG("APIC not available\n");
+        LOG("[APIC] cpuid failed\n");
         return;
     }
+    if (!(edx & CPUID_FEAT_EDX_APIC))
+    {
+        LOG("APIC not supported\n");
+        return;
+    }
+    if (ecx & CPUID_FEAT_ECX_X2APIC)
+        LOG("x2APIC available but not supported\n");
+    else
+        LOG("%u\n",ecx);
     
     // Set the APIC base
     setBase(_MADT.lapic);
@@ -95,7 +105,7 @@ void apic_init()
     apic_write_register(LAPIC_LINT0, APIC_LVT_RESET);
     apic_write_register(LAPIC_LINT1, APIC_LVT_RESET);
     apic_write_register(LAPIC_SVR, SPURIOUS_ISR | APIC_SOFTWARE_ENABLE);
-    apic_send_eoi();
+    apic_eoi();
     
     // Enable the APIC
     apicEnable();

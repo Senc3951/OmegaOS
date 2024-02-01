@@ -55,6 +55,7 @@ static Process_t *createProcess(const char *name, PageTable_t *addressSpace, voi
     process->ctx.stackSize = stackSize;
     process->priority = (short)priority;
     process->id = getNextID(); 
+    process->time = PROCESS_TIME_CONST + (int)process->priority * PROCESS_TIME_CONST;
     
     // Open files
     if (!(process->fdt = list_create()))
@@ -94,17 +95,11 @@ Process_t *process_init()
 Process_t *process_create(const char *name, void *entry, const ProcessPriority_t priority)
 {
     // Create a page table for the process and map the stack
-    LOG("[REMOVE] creating address space for process %s\n", name);
     PageTable_t *pml4 = vmm_createAddressSpace(_IdleProcess->pml4);
     if (!pml4)
-    {
-        LOG("[REMOVE] failed creating pml4\n");
         return NULL;
-    }
-    LOG("[REMOVE] creating stack for process %s\n", name);
     if (!vmm_createPages(pml4, (void *)USER_STACK_START, USER_STACK_SIZE / PAGE_SIZE, VMM_USER_ATTRIBUTES))
     {
-        LOG("[REMOVE] failed creating stack\n");
         vmm_destroyAddressSpace(_IdleProcess->pml4, pml4);
         return NULL;
     }

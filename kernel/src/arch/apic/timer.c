@@ -9,7 +9,6 @@ static uint64_t g_ticksPerMS;
 volatile uint64_t g_timeBeforeCS = 1;
 
 #define CALIBRATION_MS      10
-#define LAPIC_TIMER_MASK    (1 << 10)
 
 #define CONFIGURE_PIT(ms) ({ \
     uint8_t val = inb(0x61) & ~1;               \
@@ -35,11 +34,22 @@ volatile uint64_t g_timeBeforeCS = 1;
         apic_write_register(LAPIC_TIMER, apic_read_register(LAPIC_TIMER) & ~LAPIC_TIMER_MASKED);    \
 })
 
+static void interruptHandler(InterruptStack_t *stack)
+{
+    if (_CurrentProcess)
+    {
+        Process_t *next = dispatch(stack);
+        lapic_timer_oneshot(TIMER_ISR, next->time);
+        yield(next);
+    }
+    else
+        lapic_timer_oneshot(TIMER_ISR, CALIBRATION_MS);
+}
+
 void lapic_timer_init()
 {
-    if (!_ApicInitialized)
-        return;
-    
+    assert(isr_registerHandler(TIMER_ISR, interruptHandler));
+
     // Configure the PIC
     CONFIGURE_PIT(CALIBRATION_MS);
 
@@ -56,6 +66,14 @@ void lapic_timer_init()
     g_ticksPerMS = (UINT32_MAX - apicTicks) / CALIBRATION_MS;
     LOG("[APIC Timer] Calculated %llu ticks per ms\n", g_ticksPerMS);
     LOG("APIC timer initialized\n");
+}
+
+void lapic_timer_start(const uint8_t isr)
+{
+    if (!_ApicInitialized)
+        return;
+    
+    lapic_timer_oneshot(isr, CALIBRATION_MS);
 }
 
 void lapic_timer_oneshot(const uint8_t isr, const uint64_t ms)

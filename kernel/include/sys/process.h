@@ -8,6 +8,7 @@
 
 #define MAX_PROCESS_NAME            50
 #define MAX_PROCESS_COUNT           50
+#define PROCESS_TIME_CONST          5
 #define PROCESS_PRIORITIES_COUNT    (PriorityInteractive + 1)
 
 /// @brief Types of process priorities.
@@ -34,14 +35,15 @@ typedef struct CONTEXT
 /// @brief Information of a process. 
 typedef struct PROCESS
 {
-    int id;
-    short priority;
     Context_t ctx;
     PageTable_t *pml4;
     TreeNode_t *treeNode;
     list_t *fdt;
     char name[MAX_PROCESS_NAME];
     char cwd[FS_MAX_PATH];
+    int id;
+    int priority;
+    int time;
 #define parent_proc treeNode->parent->value
 } Process_t;
 

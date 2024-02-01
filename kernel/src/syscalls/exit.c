@@ -17,7 +17,7 @@ void sys_exit(int status)
     
     // Execute another process
     __STI();
-    yield();
-
+    yield(NULL);
+    
     panic("Unreachable");
 }

@@ -34,25 +34,37 @@ bool isr_registerHandler(const uint8_t interrupt, ISRHandler handler)
     return true;
 }
 
+static void sendEOI(const uint8_t isr)
+{
+    if (isr >= IRQ0 && isr <= IRQ15)
+    {
+        if (_ApicInitialized)
+            apic_eoi();
+        else
+            pic_eoi(isr - IRQ0);
+    }
+}
+
 extern void isr_interrupt_handler(InterruptStack_t *stack)
 {
     uint64_t intNum = stack->interruptNumber;
     if (g_handlers[intNum])
     {
-        if (intNum >= IRQ0 && intNum <= IRQ15)
+        if (intNum == TIMER_ISR)
         {
-            if (_ApicInitialized)
-                apic_send_eoi();
-            else
-                pic_sendEOI(intNum - IRQ0);
+            sendEOI(intNum);
+            g_handlers[intNum](stack);
         }
-        
-        g_handlers[intNum](stack);
+        else
+        {
+            g_handlers[intNum](stack);
+            sendEOI(intNum);
+        }        
     }
     else if (isUserInterrupt(stack))
     {
-        LOG_PROC("Terminating process because interrupt 0x%x occurred (0x%x).\n", intNum, stack->errorCode);
         sys_exit(0);
+        LOG_PROC("Terminated process because interrupt 0x%x occurred (0x%x).\n", intNum, stack->errorCode);
     }
     else
         ipanic(stack, "Unhandled interrupt");

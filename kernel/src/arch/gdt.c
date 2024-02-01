@@ -72,7 +72,7 @@ void tssSetLate()
     assert(ps2Stack);
     setTssInterrupt(PS2_KBD_IST, ps2Stack, KERNEL_STACK_SIZE);
     
-    LOG("TSS Stacks. Kernel at %p, irq at %p, pit at %p, ps2 at %p\n", kstack, irqStack, timerStack, ps2Stack);
+    LOG("TSS Stacks. Kernel at %p, IRQ at %p, Timer at %p, PS2 kbd at %p\n", kstack, irqStack, timerStack, ps2Stack);
 }
 
 void gdt_load()
