@@ -6,7 +6,7 @@
 #include <logger.h>
 
 static uint64_t g_ticksPerMS;
-volatile uint64_t g_timeBeforeCS = 1;
+volatile bool g_doneSleeping;
 
 #define CALIBRATION_MS      10
 
@@ -36,14 +36,12 @@ volatile uint64_t g_timeBeforeCS = 1;
 
 static void interruptHandler(InterruptStack_t *stack)
 {
+    g_doneSleeping = true;
     if (_CurrentProcess)
     {
         Process_t *next = dispatch(stack);
-        lapic_timer_oneshot(TIMER_ISR, next->time);
         yield(next);
     }
-    else
-        lapic_timer_oneshot(TIMER_ISR, CALIBRATION_MS);
 }
 
 void lapic_timer_init()
@@ -73,7 +71,7 @@ void lapic_timer_start(const uint8_t isr)
     if (!_ApicInitialized)
         return;
     
-    lapic_timer_oneshot(isr, CALIBRATION_MS);
+    lapic_timer_periodic(isr, 10000000);
 }
 
 void lapic_timer_oneshot(const uint8_t isr, const uint64_t ms)
@@ -94,13 +92,15 @@ void lapic_timer_periodic(const uint8_t isr, const uint64_t ms)
     SET_MASK(true);
     apic_write_register(LAPIC_TDCR, LAPIC_TIMER_DIVIDER);
     apic_write_register(LAPIC_TIMER, ((apic_read_register(LAPIC_TIMER) & ~LAPIC_TIMER_MODE_MASK) & 0xFFFFFF00) | arg);
-    apic_write_register(LAPIC_TICR, g_ticksPerMS * ms);
+    apic_write_register(LAPIC_TICR, ms);
     SET_MASK(false);
 }
 
-void lapic_timer_msleep(const uint8_t isr, const uint64_t ms)
+void lapic_timer_msleep(const uint64_t ms)
 {
-    lapic_timer_oneshot(isr, ms);
-    while (apic_read_register(LAPIC_TCCR) != 0)
+    g_doneSleeping = false;
+    lapic_timer_oneshot(TIMER_ISR, ms);
+    
+    while (!g_doneSleeping)
         __PAUSE();
 }

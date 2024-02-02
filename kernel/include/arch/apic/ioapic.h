@@ -55,5 +55,3 @@ void ioapic_init();
 /// @param vector Interrupt that will be raised.
 /// @param logical Is destination mode logical.
 void ioapic_map_irq(const uint8_t ioredtbl, const uint8_t vector, bool logical);
-
-extern bool _IoApicInitialized;

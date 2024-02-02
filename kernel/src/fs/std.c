@@ -19,8 +19,14 @@ ssize_t stdinRead(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
 {
     UNUSED(node);
     UNUSED(offset);
+    UNUSED(size);
     
-    return ps2_kbd_read(buffer, size) ? (ssize_t)size : -1;
+    int c = ps2_kbd_getc();
+    if (c <= 0)
+        return -1;
+    
+    *(char *)buffer = c;
+    return 1;
 }
 
 VfsNode_t *createStdinNode()

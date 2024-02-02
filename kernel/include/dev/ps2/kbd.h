@@ -35,8 +35,6 @@
 /// @return True if successfully initialized the keyboard, False, otherwise.
 bool ps2_kbd_init();
 
-/// @brief Read from the keyboard characters.
-/// @param buffer Buffer to write the data to.
-/// @param count Count of characters to read.
-/// @return True if read, False, if there is no avaiable input yet.
-bool ps2_kbd_read(void *buffer, size_t count);
+/// @brief Read a character from the keyboard.
+/// @return Character.
+int ps2_kbd_getc();

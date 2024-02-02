@@ -63,7 +63,7 @@ extern int _entry(BootInfo_t *bootInfo)
     // Initialize APIC & I/O APIC
     rsdp_init(bootInfo->rsdp);
     madt_init();
-    //apic_init();
+    apic_init();
     ioapic_init();
     
     // Initialize devices

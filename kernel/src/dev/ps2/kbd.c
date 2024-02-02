@@ -6,8 +6,13 @@
 #include <libc/string.h>
 #include <logger.h>
 
-#define BUFFER_SIZE PAGE_SIZE
-#define MAX_TRIES 3
+#define BUFFER_SIZE     PAGE_SIZE
+#define MAX_TRIES       3
+
+#define KBD_LSHIFT      0x01
+#define KBD_RSHIFT      0x02
+#define KBD_CAPS_LOCK   0x04
+#define KBD_NUM_LOCK    0x08
 
 #define WRITE_DATA(data) ({ \
     while (inb(KEYBOARD_STATUS_PORT) & 0x2); \
@@ -31,39 +36,55 @@
     res; \
 })
 
-static bool g_shift = false, g_caps = false;
-
-static size_t g_bufferSize = 0;
-static __ALIGNED__(PAGE_SIZE) char g_buffer[BUFFER_SIZE];
-
 static void interruptHandler(InterruptStack_t *stack)
 {
     UNUSED(stack);
+    ps2_kbd_getc();
+}
+
+int ps2_kbd_getc()
+{
+    static uint32_t shift;
+    static uint8_t *charcode[4] = { normalmap, shiftmap, ctlmap, ctlmap };
+    uint32_t st, data, c;
     
-    uint8_t data = inb(KEYBOARD_DATA_PORT);
-    switch (data)
+    st = inb(KBSTATP);
+    if ((st & KBS_DIB) == 0)
+        return -1;
+    
+    data = inb(KBDATAP);
+    if (data == 0xE0)
     {
-        case 0:
-        case INVALID_KEY:
-            break;
-        case LEFT_SHIFT:
-        case RIGHT_SHIFT:
-            g_shift = true;
-            break;
-        case LEFT_SHIFT_REL:
-        case RIGHT_SHFIT_REL:
-            g_shift = false;
-            break;
-        case CAPS_LOCK:
-            g_caps = !g_caps;
-            break;
-        default:
-            char c = translate(data, g_shift, g_caps);
-            if (c != NO_KEY && g_bufferSize < BUFFER_SIZE)
-                g_buffer[g_bufferSize++] = c;
-                                    
-            break;
-    }    
+        shift |= E0ESC;
+        return 0;
+    }
+    else if (data & 0x80)
+    {
+        // Key released
+        data = (shift & E0ESC ? data : data & 0x7F);
+        shift &= ~(shiftcode[data] | E0ESC);
+        return 0;
+    }
+    else if (shift & E0ESC)
+    {
+        // Last character was an E0 escape; or with 0x80
+        data |= 0x80;
+        shift &= ~E0ESC;
+    }
+
+    shift |= shiftcode[data];
+    shift ^= togglecode[data];
+    c = charcode[shift & (CTL | SHIFT)][data];
+    
+    if (shift & CAPSLOCK)
+    {
+        if ('a' <= c && c <= 'z')
+            c += 'A' - 'a';
+        else if ('A' <= c && c <= 'Z')
+            c += 'a' - 'A';
+    }
+    
+    return c;
 }
 
 bool ps2_kbd_init()
@@ -122,7 +143,7 @@ bool ps2_kbd_init()
         LOG("Unable to set the keyboard's scan code.\n");
         return false;
     }
-          
+    
     // Enable scanning
     if (WRITE_KEYBOARD(KEYBOARD_ENABLE_SCANNING) != KEYBOARD_ACK)
     {
@@ -133,21 +154,5 @@ bool ps2_kbd_init()
     assert(isr_registerHandler(PS2_KBD_ISR, interruptHandler));
     LOG("PS2 keyboard initialized\n");
 
-    return true;
-}
-
-bool ps2_kbd_read(void *buffer, size_t count)
-{
-    if (count > g_bufferSize)
-        return false;
-    
-    __CLI();
-    memcpy(buffer, g_buffer, count);
-    g_bufferSize -= count;
-    
-    memcpy(g_buffer, g_buffer + count, g_bufferSize);
-    LOG("");
-    __STI();
-    
     return true;
 }

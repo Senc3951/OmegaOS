@@ -48,16 +48,16 @@ void insm(const uint16_t port, uint8_t *data, uint32_t size);
 #define __IO_WAIT() { asm volatile("outb %%al, $0x80" : : "a"(0)); }
 
 /// @brief Disable interrupts.
-#define __CLI()     { asm volatile("cli"); }
+#define __CLI()     { asm volatile("cli" ::: "memory"); }
 
 /// @brief Enable interrupts.
-#define __STI()     { asm volatile("sti"); }
+#define __STI()     { asm volatile("sti" ::: "memory"); }
 
 /// @brief Halt the processor.
-#define __HALT()    { asm volatile("hlt"); }
+#define __HALT()    { asm volatile("hlt" ::: "memory"); }
 
 /// @brief Do nothing.
-#define __PAUSE()   { asm volatile("pause"); }
+#define __PAUSE()   { asm volatile("pause" ::: "memory"); }
 
 /// @brief Halt infinitely the CPU.
 #define __HCF() { \

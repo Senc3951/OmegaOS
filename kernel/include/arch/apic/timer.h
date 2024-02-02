@@ -26,7 +26,6 @@ void lapic_timer_oneshot(const uint8_t isr, const uint64_t ms);
 /// @param ms milliseconds that should pass before firing the interrupt.
 void lapic_timer_periodic(const uint8_t isr, const uint64_t ms);
 
-/// @brief Sleep for specific m seconds.
-/// @param isr Interrupt to fire.
+/// @brief Sleep for specific milliseconds.
 /// @param ms ms to sleep.
-void lapic_timer_msleep(const uint8_t isr, const uint64_t ms);
+void lapic_timer_msleep(const uint64_t ms);

@@ -2,6 +2,7 @@
 #include <arch/apic/madt.h>
 #include <arch/cpu.h>
 #include <arch/isr.h>
+#include <io/io.h>
 #include <assert.h>
 #include <logger.h>
 
@@ -11,17 +12,28 @@
 #define CPUID_FEAT_ECX_X2APIC   (1 << 21)
 #define IA32_APIC_MSR_ENABLE    (1 << 11)
 #define LAPIC_NMI               (4 << 8)
-#define MSR_APICBASE_ADDRMASK   0x000ffffffffff000ULL
 
 bool _ApicInitialized = false;
+uint32_t _BspID;
 
 static void interruptHandler(InterruptStack_t *stack)
 {
     LOG("Spurious interrupt - 0x%x (0x%x)\n", stack->interruptNumber, stack->errorCode);
 }
 
+static void ipiInterruptHandler(InterruptStack_t *stack)
+{
+    UNUSED(stack);
+    
+    __CLI();
+    LOG("Core have been requested to stop\n");
+    __HCF();
+}
+
 static void setBase(uint64_t base)
 {
+    static const uint64_t MSR_APICBASE_ADDRMASK = 0x000ffffffffff000ULL;
+
     uint32_t low, high;
     __rdmsr(IA32_APIC_BASE_MSR, &low, &high);
     uint64_t msr = ((uint64_t)high << 32) | low;
@@ -63,14 +75,36 @@ uint32_t apic_get_id()
     return apic_read_register(LAPIC_ID) >> 24;
 }
 
-void apic_disable()
+void apic_broadcast_ipi(IpiDeliveryMode_t mode, const uint8_t vector)
 {
-    uint32_t low, high;
-    __rdmsr(IA32_APIC_BASE_MSR, &low, &high);
+    InterruptCommandRegister_t icrlo = { 0 };
+    icrlo.vector = vector;
+    icrlo.delvMode = mode;
+    icrlo.destType = APIC_DEST_SHORTHAND_ALL_BUT_SELF;
+    icrlo.level = APIC_LEVEL_ASSERT;
+    icrlo.trigger = APIC_TRIGGER_EDGE;
+    uint32_t icrhi = 0;
     
-    uint64_t msr = ((uint64_t)high << 32) | low;
-    msr &= ~IA32_APIC_MSR_ENABLE;
-    __wrmsr(IA32_APIC_BASE_MSR, msr, msr >> 32);
+    apic_write_register(LAPIC_ICRHI, icrhi);
+    apic_write_register(LAPIC_ICRLO, icrlo.raw);
+}
+
+void apic_set_registers()
+{
+    // Initialize the APIC to a well known state
+    apic_write_register(LAPIC_LDR, (apic_read_register(LAPIC_LDR) & 0xFFFFFF) | 1);
+    apic_write_register(LAPIC_DFR, UINT32_MAX);
+    apic_write_register(LAPIC_LINT0, APIC_LVT_RESET);
+    apic_write_register(LAPIC_LINT1, APIC_LVT_RESET);
+    apic_write_register(LAPIC_ESR, 0);
+    apic_write_register(LAPIC_ESR, 0);
+    apic_write_register(LAPIC_PERF, LAPIC_NMI);
+    apic_write_register(LAPIC_SVR, SPURIOUS_ISR | APIC_SOFTWARE_ENABLE);
+    apic_write_register(LAPIC_TPR, 0);
+    apic_eoi();
+    
+    // Enable the APIC
+    apicEnable();
 }
 
 void apic_init()
@@ -88,27 +122,18 @@ void apic_init()
         return;
     }
     if (ecx & CPUID_FEAT_ECX_X2APIC)
+    {
         LOG("x2APIC available but not supported\n");
-    else
-        LOG("%u\n",ecx);
+    }
     
     // Set the APIC base
     setBase(_MADT.lapic);
-    LOG("APIC at %p. Version: %u\n", _MADT.lapic, apic_read_register(LAPIC_VER));
+    LOG("APIC at %p. Version: %u\n", _MADT.lapic, (apic_read_register(LAPIC_VER) >> 16) & 0xFF);
     
-    // Initialize the APIC to a well known state
+    _BspID = apic_read_register(LAPIC_ID);
     assert(isr_registerHandler(SPURIOUS_ISR, interruptHandler));
-    apic_write_register(LAPIC_TPR, 0);
-    apic_write_register(LAPIC_LDR, (apic_read_register(LAPIC_LDR) & 0xFFFFFF) | 1);
-    apic_write_register(LAPIC_DFR, UINT32_MAX);
-    apic_write_register(LAPIC_PERF, LAPIC_NMI);
-    apic_write_register(LAPIC_LINT0, APIC_LVT_RESET);
-    apic_write_register(LAPIC_LINT1, APIC_LVT_RESET);
-    apic_write_register(LAPIC_SVR, SPURIOUS_ISR | APIC_SOFTWARE_ENABLE);
-    apic_eoi();
-    
-    // Enable the APIC
-    apicEnable();
+    assert(isr_registerHandler(IPI_ISR, ipiInterruptHandler));
+    apic_set_registers();
 
     // Verify that APIC is enabled
     __rdmsr(IA32_APIC_BASE_MSR, &lo, &hi);

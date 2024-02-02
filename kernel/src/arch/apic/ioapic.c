@@ -7,8 +7,6 @@
 #define IOREGSEL    0
 #define IOWIN       0x10
 
-bool _IoApicInitialized = false;
-
 static uint32_t readRegister(uint64_t base, const uint8_t offset)
 {
     *(volatile uint32_t *)(base + IOREGSEL) = offset;
@@ -79,8 +77,6 @@ void ioapic_init()
         IoApicInterruptOverride_t *entry = _MADT.ioapicInterruptOverride[i];
         LOG("I/O APIC Interrupt Override. Bus source: %u. Irq Souce: %u. GSI: %p. Flags: %u\n", entry->busSource, entry->irqSource, entry->gsi, entry->flags);
     }
-
-    _IoApicInitialized = true;
 }
 
 void ioapic_map_irq(const uint8_t ioredtbl, const uint8_t vector, bool logical)
@@ -95,12 +91,12 @@ void ioapic_map_irq(const uint8_t ioredtbl, const uint8_t vector, bool logical)
     if (logical)
     {
         entry.destMode = IOAPIC_DESTMODE_LOGICAL;
-        entry.destination = 0xFF;
+        entry.destination = UINT8_MAX;
     }
     else
     {
         entry.destMode = IOAPIC_DESTMODE_PHYSICAL;
-        entry.destination = apic_get_id();
+        entry.destination = _BspID;
     }
     
     IOAPIC_t *ioapic = getIoApicByInterrupt(ioredtbl);

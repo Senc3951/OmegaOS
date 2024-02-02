@@ -54,15 +54,59 @@
 
 #define APIC_LVT_RESET          0x10000
 
+#define APIC_TRIGGER_EDGE                   0x0
+#define APIC_TRIGGER_LEVEL                  0x1
+
+#define APIC_DEST_SHORTHAND_NONE            0x0
+#define APIC_DEST_SHORTHAND_SELF            0x1
+#define APIC_DEST_SHORTHAND_ALL_AND_SELF    0x2
+#define APIC_DEST_SHORTHAND_ALL_BUT_SELF    0x3
+
+#define APIC_LEVEL_DEASSERT                 0x0
+#define APIC_LEVEL_ASSERT                   0x1
+
+typedef enum IPI_DELIVERY_MODE
+{
+    IPI_NORMAL = 0,
+    IPI_LOWEST,
+    IPI_SMI,
+    IPI_NMI = 4,
+    IPI_INIT,
+    IPI_SIPI
+} IpiDeliveryMode_t;
+
+typedef union APIC_ICR
+{
+    struct
+    {
+        uint32_t vector     : 8;
+        uint32_t delvMode   : 3;
+        uint32_t destMode   : 1;
+        uint32_t delvStatus : 1;
+        uint32_t reserved0  : 1;
+        uint32_t level      : 1;
+        uint32_t trigger    : 1;
+        uint32_t reserved1  : 2;
+        uint32_t destType   : 2;
+        uint32_t reserved2  : 12;
+    } __PACKED__;
+    uint32_t raw;
+} InterruptCommandRegister_t;
+
 /// @brief Initialize the APIC.
 void apic_init();
-
-/// @brief Disable the APIC
-void apic_disable();
 
 /// @brief Get the id of the current cpu.
 /// @return Current cpu id.
 uint32_t apic_get_id();
+
+/// @brief Send an ipi to all cores.
+/// @param mode Mode of delivery.
+/// @param vector Interrupt to send.
+void apic_broadcast_ipi(IpiDeliveryMode_t mode, const uint8_t vector);
+
+/// @brief Set the APIC registers to a well known state. 
+void apic_set_registers();
 
 /// @brief Read a register of the local apic.
 /// @param offset Offset of the register.
@@ -78,3 +122,4 @@ void apic_write_register(const uint32_t offset, const uint32_t value);
 void apic_eoi();
 
 extern bool _ApicInitialized;   /* Is APIC initialized. */
+extern uint32_t _BspID;         /* APIC ID of the BSP. */
