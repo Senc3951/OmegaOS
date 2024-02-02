@@ -93,6 +93,14 @@ typedef union APIC_ICR
     uint32_t raw;
 } InterruptCommandRegister_t;
 
+typedef struct CORE_CONTEXT
+{
+    uint8_t id;
+    uint64_t stack;
+    uint64_t stackSize;
+    uint64_t gdt;
+} __PACKED__ CoreContext_t;
+
 /// @brief Initialize the APIC.
 void apic_init();
 
@@ -108,6 +116,10 @@ void apic_broadcast_ipi(IpiDeliveryMode_t mode, const uint8_t vector);
 /// @brief Set the APIC registers to a well known state. 
 void apic_set_registers();
 
+/// @brief Wakeup a core using SMP
+/// @param id APIC id of the core.
+void apic_wakeup_core(const uint8_t id);
+
 /// @brief Read a register of the local apic.
 /// @param offset Offset of the register.
 /// @return Value of the register.
@@ -121,5 +133,11 @@ void apic_write_register(const uint32_t offset, const uint32_t value);
 /// @brief Send an eoi to the apic.
 void apic_eoi();
 
-extern bool _ApicInitialized;   /* Is APIC initialized. */
-extern uint32_t _BspID;         /* APIC ID of the BSP. */
+/// @brief Get the current core.
+/// @return Current core.
+CoreContext_t *currentCPU();
+
+extern bool _ApicInitialized;       /* Is APIC initialized. */
+extern uint32_t _BspID;             /* APIC ID of the BSP. */
+extern uint32_t _CoreCount;    /* Amount of available cores. */
+extern CoreContext_t *_Cores;       /* Available cores. */

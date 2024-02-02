@@ -1,9 +1,11 @@
 #include <arch/apic/apic.h>
 #include <arch/apic/madt.h>
+#include <arch/apic/timer.h>
 #include <arch/cpu.h>
 #include <arch/isr.h>
 #include <io/io.h>
 #include <assert.h>
+#include <panic.h>
 #include <logger.h>
 
 #define IA32_APIC_BASE_MSR      0x1B
@@ -12,6 +14,13 @@
 #define CPUID_FEAT_ECX_X2APIC   (1 << 21)
 #define IA32_APIC_MSR_ENABLE    (1 << 11)
 #define LAPIC_NMI               (4 << 8)
+#define APIC_ICR_STATUS         (1 << 12)
+
+#define WAIT_FOR_DELIVERY() ({                                      \
+    do {                                                            \
+        __PAUSE();                                                  \
+    } while (apic_read_register(LAPIC_ICRLO) & APIC_ICR_STATUS);    \
+})
 
 bool _ApicInitialized = false;
 uint32_t _BspID;
@@ -71,7 +80,7 @@ void apic_eoi()
 }
 
 uint32_t apic_get_id()
-{
+{    
     return apic_read_register(LAPIC_ID) >> 24;
 }
 
@@ -105,6 +114,54 @@ void apic_set_registers()
     
     // Enable the APIC
     apicEnable();
+}
+
+void apic_wakeup_core(const uint8_t id)
+{
+    apic_write_register(LAPIC_ESR, 0);  // Clear apic errors
+
+    // Select AP
+    uint32_t v1 = (apic_read_register(LAPIC_ICRHI) & 0x00ffffff) | (id << 24);
+    apic_write_register(LAPIC_ICRHI, v1);
+    
+    // Trigger INIT IPI
+    apic_write_register(LAPIC_ICRLO, (apic_read_register(LAPIC_ICRLO) & 0xfff32000) | 0xc500);
+    WAIT_FOR_DELIVERY();
+    apic_write_register(LAPIC_ICRHI, v1);   // Select AP
+
+    // DeAssert
+    apic_write_register(LAPIC_ICRLO, (apic_read_register(LAPIC_ICRLO) & 0xfff00000) | 0x8500);
+    
+    WAIT_FOR_DELIVERY();
+    lapic_timer_msleep(10);
+    
+    // Send STARTUP IPI
+    for (int j = 0; j < 2; j++)
+    {
+        apic_write_register(LAPIC_ESR, 0);  // Clear apic errors
+
+        // Select AP
+        apic_write_register(LAPIC_ICRHI, v1);
+
+        // Trigger STARTUP IPI
+        uint32_t v4 = (apic_read_register(LAPIC_ICRLO) & 0xfff0f800) | 0x608;
+        apic_write_register(LAPIC_ICRLO, v4);
+
+        lapic_timer_msleep(1);
+        WAIT_FOR_DELIVERY();
+    }
+}
+
+CoreContext_t *currentCPU()
+{
+    uint32_t cid = apic_get_id();
+    for (uint32_t i = 0; i < _CoreCount; i++)
+    {
+        if (cid == _Cores[i].id)
+            return &_Cores[i];
+    }
+    
+    panic("Failed finding core with id %u\n", cid);
 }
 
 void apic_init()

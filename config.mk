@@ -2,6 +2,7 @@ DEBUG := true
 OPTIMISATION := -O3
 
 export OS_NAME := OmegaOS
+export SMP_CORES := 2
 
 export GNU_EFI_DIR := $(abspath gnu-efi)
 export RESOURCES_DIR := $(abspath resources)
@@ -24,7 +25,7 @@ export AFLAGS := -f elf64 $(OPTIMISATION)
 export CFLAGS := -m64 $(OPTIMISATION)
 export LFLAGS := -nostdlib $(OPTIMISATION)
 export QEMU := qemu-system-x86_64
-export QFLAGS := -machine q35 -cpu max -m 2G -d cpu_reset \
+export QFLAGS := -machine q35 -cpu max -smp $(SMP_CORES) -m 2G -d cpu_reset \
 	-rtc base=localtime -net none -serial stdio \
 	-device piix3-ide,id=ide -drive id=disk,file=$(ROOTFS_FILE),format=raw,if=none \
 	-device ide-hd,drive=disk,bus=ide.0 \

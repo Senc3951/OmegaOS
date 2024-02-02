@@ -98,9 +98,12 @@ void lapic_timer_periodic(const uint8_t isr, const uint64_t ms)
 
 void lapic_timer_msleep(const uint64_t ms)
 {
+    lapic_timer_oneshot(TIMER_ISR, ms * 10);
     g_doneSleeping = false;
-    lapic_timer_oneshot(TIMER_ISR, ms);
     
     while (!g_doneSleeping)
         __PAUSE();
+    
+    // REMOVE:
+    lapic_timer_start(TIMER_ISR);
 }

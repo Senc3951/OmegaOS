@@ -12,6 +12,7 @@
 #include <arch/apic/apic.h>
 #include <arch/apic/ioapic.h>
 #include <arch/apic/timer.h>
+#include <arch/smp.h>
 #include <mem/pmm.h>
 #include <mem/vmm.h>
 #include <mem/heap.h>
@@ -70,6 +71,9 @@ extern int _entry(BootInfo_t *bootInfo)
     dev_init();
     __STI();
     
+    // Initialize other cores
+    smp_init();
+
     // Initialize filesystem
     ide_init(ATA_DEVICE);   // Initialize disk controller
     ext2_init();            // Initialize root filesystem
@@ -88,4 +92,10 @@ extern int _entry(BootInfo_t *bootInfo)
     yield(NULL);
     
     panic("Unreachable");
+}
+
+int ap_entry(CoreContext_t *context)
+{
+    LOG("[Core %u] Online. Stack at %p - %p\n", context->id, context->stack - context->stackSize, context->stack);
+    __HCF();
 }
