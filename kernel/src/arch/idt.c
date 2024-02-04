@@ -6,6 +6,9 @@ extern uint64_t interruptHandlers[];
 
 static IDTEntry_t g_idtEntries[IDT_ENTRIES];
 static IDT_t g_idt;
+static bool g_bspInitialized = false;
+
+#define IDT_LOAD() asm volatile("lidtq %0" : : "m"(g_idt))
 
 static void setEntry(const uint8_t index, const uint64_t offset, const uint16_t segment, const uint8_t flags, const uint8_t ist)
 {
@@ -31,6 +34,12 @@ static void setAttributes(const uint64_t index, const uint8_t ist, const uint8_t
 
 void idt_load()
 {
+    if (g_bspInitialized)
+    {
+        IDT_LOAD();
+        return;
+    }
+
     memset(g_idtEntries, 0, sizeof(g_idtEntries));
     for (size_t i = 0; i < IDT_ENTRIES; i++)
     {
@@ -47,5 +56,6 @@ void idt_load()
     g_idt.base = (uint64_t)g_idtEntries;
     g_idt.size = sizeof(g_idtEntries) - 1;
     
-    asm volatile("lidtq %0" : : "m"(g_idt));
+    g_bspInitialized = true;
+    IDT_LOAD();
 }

@@ -13,3 +13,8 @@ void lock_acquire(lock_t *lock);
 /// @brief Release a lock.
 /// @param lock Lock to release.
 void lock_release(lock_t *lock);
+
+/// @brief Check if a lock is being used.
+/// @param lock Lock to check.
+/// @return 1 if used, 0, otherwise.
+int lock_used(lock_t *lock);

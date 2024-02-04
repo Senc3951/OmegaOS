@@ -3,6 +3,7 @@
 #include <mem/heap.h>
 #include <arch/isr.h>
 #include <arch/cpu.h>
+#include <arch/lock.h>
 #include <sys/syscalls.h>
 #include <assert.h>
 #include <panic.h>
@@ -27,6 +28,7 @@ enum PageFaultReason
 };
 
 PageTable_t *_KernelPML4 = NULL;
+MAKE_SPINLOCK(g_lock);
 
 static void setEntry(PageTableEntry_t *entry, uint64_t addr, uint64_t attr)
 {
@@ -198,6 +200,8 @@ void *virt2phys(PageTable_t *pml4, void *virt)
 
 void vmm_mapPage(PageTable_t *pml4, void *phys, void *virt, const uint64_t attr)
 {
+    lock_acquire(&g_lock);
+
     uint64_t uphys = (uint64_t)phys;
     uint64_t uvirt = RNDWN((uint64_t)virt, PAGE_SIZE);
     
@@ -224,6 +228,8 @@ void vmm_mapPage(PageTable_t *pml4, void *phys, void *virt, const uint64_t attr)
     
     uint64_t ptIndex = (uvirt >> 12) & 0x1FF;
     setEntry(&pt->entries[ptIndex], uphys >> 12, attr);
+    
+    lock_release(&g_lock);
 }
 
 void vmm_identityMapPage(PageTable_t *pml4, void *phys, const uint64_t attr)

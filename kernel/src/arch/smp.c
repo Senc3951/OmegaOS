@@ -40,9 +40,6 @@ CoreContext_t *_Cores;
 
 void smp_init()
 {
-    _CoreCount = _MADT.coreCount;
-    assert(_Cores = (CoreContext_t *)vmm_createIdentityPage(_KernelPML4, VMM_KERNEL_ATTRIBUTES));
-    
     extern int ap_entry(CoreContext_t *context);
 
     // Copy the AP trampoline code to a fixed address
@@ -61,8 +58,8 @@ void smp_init()
         uint32_t cid = _MADT.coreIDs[i];
         if (cid == _BspID)
             continue;
-
-        CoreContext_t *currentContext = (CoreContext_t *)((uint64_t)_Cores + i * sizeof(CoreContext_t));
+        
+        CoreContext_t *currentContext = (CoreContext_t *)&_Cores[i];
         coreInfo->apStatus = coreInfo->bspStatus = 0;
         
         // Wakeup the core
@@ -86,6 +83,6 @@ void smp_init()
         
         LOG("[BSP] Core %u initialized with stack at %p - %p\n", cid, kstack, (uint64_t)kstack + CORE_STACK_SIZE);    
     }
-
-    LOG("All cores initialized (%u)\n", _CoreCount);
+    
+    LOG("[BSP] All cores initialized (%u)\n", _CoreCount);
 }

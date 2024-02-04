@@ -1,6 +1,6 @@
 bits 64
 
-global x64_acquire_lock, x64_release_lock, x64_atomic_add
+global x64_acquire_lock, x64_release_lock, x64_lock_used, x64_atomic_add
 
 spin_wait:
     pause                   ; tell the CPU we are spinning
@@ -14,6 +14,16 @@ x64_acquire_lock:
 
 x64_release_lock:
     mov dword [rdi], 0
+    ret
+
+x64_lock_used:
+    mov rax, 0
+    
+    test dword [rdi], 1
+    jnz .used
+    ret
+.used:
+    mov rax, 1
     ret
 
 x64_atomic_add:

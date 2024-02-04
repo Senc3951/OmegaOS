@@ -38,6 +38,13 @@ typedef struct GDT_ENTRY
     uint8_t baseHigh;
 } __PACKED__ GDTEntry_t;
 
+/// @brief Information about GDT & TSS
+typedef struct GDT_BLOCK
+{
+    GDTEntry_t gdt[8];
+    TSSEntry_t tss;
+} GDTBlock_t;
+
 /// @brief Struct the CPU will receive.
 typedef struct GDT
 {

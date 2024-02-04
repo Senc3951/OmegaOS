@@ -1,13 +1,12 @@
 #include <panic.h>
-#include <arch/apic/apic.h>
+#include <arch/apic/ipi.h>
 #include <gui/screen.h>
 #include <io/io.h>
 
 void __NO_RETURN__  __kpanic(const char *file, const char *function, const uint64_t line, const char *fmt, ...)
 {
     __CLI();
-    if (_ApicInitialized)
-        apic_broadcast_ipi(APIC_DEST_SHORTHAND_ALL_BUT_SELF, IPI_ISR);
+    ipi_broadcast(ICR_FIXED, IPI_ISR);
     
     va_list va;
     va_start(va, fmt);
@@ -24,8 +23,7 @@ void __NO_RETURN__  __kpanic(const char *file, const char *function, const uint6
 void __NO_RETURN__  __ikpanic(InterruptStack_t *stack, const char *fmt, ...)
 {
     __CLI();
-    if (_ApicInitialized)
-        apic_broadcast_ipi(APIC_DEST_SHORTHAND_ALL_BUT_SELF, IPI_ISR);
+    ipi_broadcast(ICR_FIXED, IPI_ISR);
     
     va_list va;
     va_start(va, fmt);

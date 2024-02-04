@@ -14,7 +14,7 @@ x86_64 UEFI-based operating system built from scratch.
 - [x] User space
 - [x] Shell
 - [x] APIC
-- [ ] SMP
+- [x] SMP
 - [ ] USB
 - [ ] Network
 
@@ -40,9 +40,6 @@ On a seperate terminal, run the following commands
 gdb
 target remote localhost:1234
 symbol-file output/kernel.elf
-layout src
-b _entry
-c
 ```
 
 ## Contribute

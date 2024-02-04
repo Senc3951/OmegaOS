@@ -1,4 +1,5 @@
 #include <arch/apic/apic.h>
+#include <arch/apic/ipi.h>
 #include <arch/apic/madt.h>
 #include <arch/apic/timer.h>
 #include <arch/cpu.h>
@@ -14,13 +15,6 @@
 #define CPUID_FEAT_ECX_X2APIC   (1 << 21)
 #define IA32_APIC_MSR_ENABLE    (1 << 11)
 #define LAPIC_NMI               (4 << 8)
-#define APIC_ICR_STATUS         (1 << 12)
-
-#define WAIT_FOR_DELIVERY() ({                                      \
-    do {                                                            \
-        __PAUSE();                                                  \
-    } while (apic_read_register(LAPIC_ICRLO) & APIC_ICR_STATUS);    \
-})
 
 bool _ApicInitialized = false;
 uint32_t _BspID;
@@ -28,15 +22,6 @@ uint32_t _BspID;
 static void interruptHandler(InterruptStack_t *stack)
 {
     LOG("Spurious interrupt - 0x%x (0x%x)\n", stack->interruptNumber, stack->errorCode);
-}
-
-static void ipiInterruptHandler(InterruptStack_t *stack)
-{
-    UNUSED(stack);
-    
-    __CLI();
-    LOG("Core have been requested to stop\n");
-    __HCF();
 }
 
 static void setBase(uint64_t base)
@@ -84,22 +69,11 @@ uint32_t apic_get_id()
     return apic_read_register(LAPIC_ID) >> 24;
 }
 
-void apic_broadcast_ipi(IpiDeliveryMode_t mode, const uint8_t vector)
-{
-    InterruptCommandRegister_t icrlo = { 0 };
-    icrlo.vector = vector;
-    icrlo.delvMode = mode;
-    icrlo.destType = APIC_DEST_SHORTHAND_ALL_BUT_SELF;
-    icrlo.level = APIC_LEVEL_ASSERT;
-    icrlo.trigger = APIC_TRIGGER_EDGE;
-    uint32_t icrhi = 0;
-    
-    apic_write_register(LAPIC_ICRHI, icrhi);
-    apic_write_register(LAPIC_ICRLO, icrlo.raw);
-}
-
 void apic_set_registers()
 {
+    // Set base
+    setBase(_MADT.lapic);
+    
     // Initialize the APIC to a well known state
     apic_write_register(LAPIC_LDR, (apic_read_register(LAPIC_LDR) & 0xFFFFFF) | 1);
     apic_write_register(LAPIC_DFR, UINT32_MAX);
@@ -119,36 +93,30 @@ void apic_set_registers()
 void apic_wakeup_core(const uint8_t id)
 {
     apic_write_register(LAPIC_ESR, 0);  // Clear apic errors
-
-    // Select AP
-    uint32_t v1 = (apic_read_register(LAPIC_ICRHI) & 0x00ffffff) | (id << 24);
-    apic_write_register(LAPIC_ICRHI, v1);
     
-    // Trigger INIT IPI
-    apic_write_register(LAPIC_ICRLO, (apic_read_register(LAPIC_ICRLO) & 0xfff32000) | 0xc500);
-    WAIT_FOR_DELIVERY();
-    apic_write_register(LAPIC_ICRHI, v1);   // Select AP
-
-    // DeAssert
-    apic_write_register(LAPIC_ICRLO, (apic_read_register(LAPIC_ICRLO) & 0xfff00000) | 0x8500);
+    // Send init ipi
+    ipi_send_core(id, APIC_DELMOD_INIT, 0);
+    if (!ipi_wait_accept())
+        panic("[BSP] Failed to deliver INIT to core %u\n", id);
     
-    WAIT_FOR_DELIVERY();
+    // Send deassert ipi
+    ipi_send_deassert(id, APIC_DELMOD_INIT, 0);
+    if (!ipi_wait_accept())
+        panic("[BSP] Failed to deassert core %u\n", id);
+        
     lapic_timer_msleep(10);
-    
-    // Send STARTUP IPI
+
+    // Send startup ipi
     for (int j = 0; j < 2; j++)
     {
         apic_write_register(LAPIC_ESR, 0);  // Clear apic errors
-
-        // Select AP
-        apic_write_register(LAPIC_ICRHI, v1);
-
-        // Trigger STARTUP IPI
-        uint32_t v4 = (apic_read_register(LAPIC_ICRLO) & 0xfff0f800) | 0x608;
-        apic_write_register(LAPIC_ICRLO, v4);
-
+        
+        // Send sipi ipi
+        ipi_send_core(id, APIC_DELMOD_START, AP_TRAMPOLINE >> 12);
+        if (!ipi_wait_accept())
+            panic("[BSP] Failed to deliver SIPI %d to core %u\n", j, id);
+        
         lapic_timer_msleep(1);
-        WAIT_FOR_DELIVERY();
     }
 }
 
@@ -166,6 +134,10 @@ CoreContext_t *currentCPU()
 
 void apic_init()
 {
+    _CoreCount = _MADT.coreCount;
+    uint64_t corePages = RNDUP(_CoreCount * sizeof(CoreContext_t), PAGE_SIZE);
+    assert(_Cores = (CoreContext_t *)vmm_createIdentityPages(_KernelPML4, corePages, VMM_KERNEL_ATTRIBUTES));
+    
     // Verify APIC is supported
     uint32_t unused, ecx, edx, lo, hi;
     if (!__get_cpuid(1, &unused, &unused, &ecx, &edx))
@@ -183,14 +155,13 @@ void apic_init()
         LOG("x2APIC available but not supported\n");
     }
     
-    // Set the APIC base
-    setBase(_MADT.lapic);
     LOG("APIC at %p. Version: %u\n", _MADT.lapic, (apic_read_register(LAPIC_VER) >> 16) & 0xFF);
-    
     _BspID = apic_read_register(LAPIC_ID);
+    
+    // Initialize apic registers & ipi
     assert(isr_registerHandler(SPURIOUS_ISR, interruptHandler));
-    assert(isr_registerHandler(IPI_ISR, ipiInterruptHandler));
     apic_set_registers();
+    ipi_init();
 
     // Verify that APIC is enabled
     __rdmsr(IA32_APIC_BASE_MSR, &lo, &hi);

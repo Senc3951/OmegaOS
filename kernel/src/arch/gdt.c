@@ -1,18 +1,13 @@
 #include <arch/gdt.h>
 #include <arch/idt.h>
-#include <libc/string.h>
 #include <mem/vmm.h>
-#include <logger.h>
 #include <assert.h>
-
-typedef struct GDT_BLOCK
-{
-    GDTEntry_t gdt[8];
-    TSSEntry_t tss;
-} GDTBlock_t;
+#include <libc/string.h>
+#include <logger.h>
 
 static GDTBlock_t g_gdtBlock;
 static GDT_t g_gdt;
+static bool g_bspInitialized = false;
 
 static void setEntry(const uint8_t i, const uint32_t base, const uint32_t limit, const uint8_t access, const uint8_t granularity)
 {
@@ -77,24 +72,29 @@ void tssSetLate()
 
 void gdt_load()
 {
-    memset(g_gdtBlock.gdt, 0, sizeof(g_gdtBlock.gdt));
-    memset(&g_gdtBlock.tss, 0, sizeof(g_gdtBlock.tss));
+    extern void x64_load_gdt(GDT_t *gdt, uint64_t cs, uint64_t ds);
+    extern void x64_flush_tss(uint16_t index);
     
+    if (g_bspInitialized)
+    {
+        x64_load_gdt(&g_gdt, GDT_KERNEL_CS, GDT_KERNEL_DS);
+        return;
+    }
+    
+    memset(&g_gdtBlock, 0, sizeof(GDTBlock_t));
     setEntry(0, 0, 0, 0, 0);                                    // Kernel null segment
     setEntry(1, 0, 0xFFFFFFFF, KERNEL_CODE_SEGMENT, 0xAF);      // Kernel code segment
     setEntry(2, 0, 0xFFFFFFFF, KERNEL_DATA_SEGMENT, 0xAF);      // Kernel data segment
     setEntry(4, 0, 0xFFFFFFFF, USER_CODE_SEGMENT, 0xAF);        // User code segment
     setEntry(5, 0, 0xFFFFFFFF, USER_DATA_SEGMENT, 0xAF);        // User data segment
     setTSS(6);                                                  // TSS
-        
+
     g_gdt.base = (uint64_t)g_gdtBlock.gdt;
     g_gdt.size = sizeof(g_gdtBlock.gdt) - 1;
     
-    extern void x64_load_gdt(GDT_t *gdt, uint64_t cs, uint64_t ds);
-    extern void x64_flush_tss(uint16_t index);
-    
     x64_load_gdt(&g_gdt, GDT_KERNEL_CS, GDT_KERNEL_DS);
     x64_flush_tss(GDT_TSS_INDEX);
-
+    
     tssSetLate();
+    g_bspInitialized = true;
 }

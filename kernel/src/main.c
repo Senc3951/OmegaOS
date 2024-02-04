@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <panic.h>
 #include <gui/screen.h>
+#include <arch/lock.h>
 #include <arch/gdt.h>
 #include <arch/idt.h>
 #include <arch/pic.h>
@@ -27,6 +28,8 @@
 extern uint64_t _kernel_start, _kernel_end, _kernel_writable_start, _kernel_writable_end;
 uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableEnd;
 
+MAKE_SPINLOCK(g_coreLock);
+
 void dev_init()
 {
     assert(ps2_kbd_init());
@@ -36,7 +39,13 @@ void dev_init()
         pit_init(PIT_DEFAULT_FREQUENCY);
 }
 
-extern int _entry(BootInfo_t *bootInfo)
+void bsp_init()
+{
+    CoreContext_t *bsp = &_Cores[0];
+    bsp->id = apic_get_id();
+}
+
+int _entry(BootInfo_t *bootInfo)
 {
     __CLI();
     eassert(bootInfo && bootInfo->fb && bootInfo->font && bootInfo->mmap && bootInfo->rsdp);
@@ -72,6 +81,8 @@ extern int _entry(BootInfo_t *bootInfo)
     __STI();
     
     // Initialize other cores
+    lock_acquire(&g_coreLock);
+    bsp_init();
     smp_init();
 
     // Initialize filesystem
@@ -85,7 +96,9 @@ extern int _entry(BootInfo_t *bootInfo)
 
     extern void shell();
     assert(process_create("Shell", shell, PriorityInteractive));
+    
     LOG("Kernel initialization finished. Jumping to user space\n\n");
+    lock_release(&g_coreLock);  // Allow other cores to start scheduling
     
     // Launch the timer, and start executing processes
     lapic_timer_start(TIMER_ISR);
@@ -97,5 +110,18 @@ extern int _entry(BootInfo_t *bootInfo)
 int ap_entry(CoreContext_t *context)
 {
     LOG("[Core %u] Online. Stack at %p - %p\n", context->id, context->stack - context->stackSize, context->stack);
+    gdt_load();
+    idt_load();
+    apic_set_registers();
+    LOG("[Core %u] Initialized\n", context->id);
+    
+    // For for bsp to finish initialization
+    while (lock_used(&g_coreLock))
+        __PAUSE();
+    
+    __STI();
+    while (1)
+        __PAUSE();
+    
     __HCF();
 }
