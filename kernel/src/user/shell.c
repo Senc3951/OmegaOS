@@ -105,8 +105,10 @@ void shell()
     while (1)
     {
         printf("%s@%s:%s$ ", USERNAME, USERNAME, g_cwd);
-                
         gets(line);
+        if (!strlen(line))
+            continue;
+        
         char *op = strtok(line, STRTOK_DELIM);
         if (!op || !strcmp(op, "exit"))
             break;

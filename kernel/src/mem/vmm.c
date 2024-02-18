@@ -60,8 +60,7 @@ static void pageFaultHandler(InterruptStack_t *stack)
         panic("Kernel attempted to access an illegal address %p (0x%x)", virtAddr, errCode);
     
     virtAddr = RNDWN(virtAddr, PAGE_SIZE);
-    PageTable_t *pml4 = _CurrentProcess->pml4;
-
+    PageTable_t *pml4 = currentProcess()->pml4;
     if (errCode & PF_PRESENT || errCode & PF_WRITABLE)
     {
         void *frame = pmm_getFrame();

@@ -52,11 +52,12 @@ typedef struct PROCESS
 Process_t *process_init();
 
 /// @brief Create a process.
+/// @param parent Parent process.
 /// @param name Name of the process.
 /// @param entry Entry point of the process.
 /// @param priority Priority of the process.
 /// @return Created process.
-Process_t *process_create(const char *name, void *entry, const ProcessPriority_t priority);
+Process_t *process_create(Process_t *parent, const char *name, void *entry, const ProcessPriority_t priority);
 
 /// @brief Delete a process.
 /// @param process Process to delete.

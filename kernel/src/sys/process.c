@@ -1,5 +1,6 @@
 #include <sys/process.h>
 #include <sys/scheduler.h>
+#include <arch/apic/apic.h>
 #include <arch/atomic.h>
 #include <arch/gdt.h>
 #include <fs/std.h>
@@ -40,9 +41,8 @@ static Process_t *createProcess(const char *name, PageTable_t *addressSpace, voi
         return NULL;
     
     process->pml4 = addressSpace;
-    strncpy(process->name, name, MAX_PROCESS_NAME);
-    memset(process->cwd, 0, FS_MAX_PATH);
-    strncpy(process->cwd, FS_PATH_SEPERATOR_STR, strlen(FS_PATH_SEPERATOR_STR));
+    strcpy(process->name, name);
+    strcpy(process->cwd, FS_PATH_SEPERATOR_STR);
     
     // Basic information and registers
     memset(&process->ctx, 0, sizeof(process->ctx));
@@ -83,24 +83,27 @@ Process_t *process_init()
     assert(g_processTree = tree_create());
     
     // Create the idle process
-    assert(_IdleProcess = createProcess(INIT_PROCESS_NAME, _KernelPML4, x64_idle, PriorityIdle, 0, 0, GDT_KERNEL_CS, GDT_KERNEL_DS));
     
+    Process_t *idle = createProcess(INIT_PROCESS_NAME, _KernelPML4, x64_idle, PriorityIdle, 0, 0, GDT_KERNEL_CS, GDT_KERNEL_DS);
+    assert(idle);
+
     // Insert idle process as root process
-    tree_set_root(g_processTree, _IdleProcess);
-    _IdleProcess->treeNode = g_processTree->root;
+    tree_set_root(g_processTree, idle);
+    idle->treeNode = g_processTree->root;
     
-    return _IdleProcess;
+    currentCPU()->currentProcess = idle;
+    return idle;
 }
 
-Process_t *process_create(const char *name, void *entry, const ProcessPriority_t priority)
+Process_t *process_create(Process_t *parent, const char *name, void *entry, const ProcessPriority_t priority)
 {
     // Create a page table for the process and map the stack
-    PageTable_t *pml4 = vmm_createAddressSpace(_IdleProcess->pml4);
+    PageTable_t *pml4 = vmm_createAddressSpace(parent->pml4);
     if (!pml4)
         return NULL;
     if (!vmm_createPages(pml4, (void *)USER_STACK_START, USER_STACK_SIZE / PAGE_SIZE, VMM_USER_ATTRIBUTES))
     {
-        vmm_destroyAddressSpace(_IdleProcess->pml4, pml4);
+        vmm_destroyAddressSpace(parent->pml4, pml4);
         return NULL;
     }
     

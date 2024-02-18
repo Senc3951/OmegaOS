@@ -3,7 +3,7 @@
 #include <arch/isr.h>
 #include <sys/process.h>
 
-#define PROC_FILE_AT(fd)    ((VfsNode_t *)(list_find_index(_CurrentProcess->fdt, fd)->value))
+#define PROC_FILE_AT(fd)    ((VfsNode_t *)(list_find_index(currentProcess()->fdt, fd)->value))
 
 /// @brief Initialize the scheduler.
 void scheduler_init();
@@ -25,5 +25,6 @@ void yield(Process_t *process);
 /// @return New process.
 Process_t *dispatch(InterruptStack_t *stack);
 
-extern Process_t *_CurrentProcess;  /* Current running process. */
-extern Process_t *_IdleProcess;     /* Init process. */
+/// @brief Get the current process.
+/// @return Current process.
+Process_t *currentProcess();

@@ -70,11 +70,11 @@ void smp_init()
         
         // Initialize core
         currentContext->id = cid;
-        currentContext->stackSize = CORE_STACK_SIZE;
+        currentContext->currentProcess = NULL;
         void *kstack = vmm_createIdentityPages(_KernelPML4, CORE_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
         assert(kstack);
         currentContext->stack = (uint64_t)kstack + CORE_STACK_SIZE;
-        
+                
         coreInfo->context = (uint64_t)currentContext;
         coreInfo->pml4 = (uint32_t)(uint64_t)_KernelPML4;
         coreInfo->stackTop = (uint32_t)currentContext->stack;

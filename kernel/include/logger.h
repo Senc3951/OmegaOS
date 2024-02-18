@@ -10,9 +10,10 @@
 #endif
 
 #ifdef SYS_DEBUG
-    #define LOG_PROC(...) ({                                                    \
-        LOG("[%s/%u] ", _CurrentProcess->name, _CurrentProcess->id);            \
-        LOG(__VA_ARGS__);                                                       \
+    #define LOG_PROC(...) ({                    \
+        Process_t *curr = currentProcess();     \
+        LOG("[%s/%u] ", curr->name, curr->id);  \
+        LOG(__VA_ARGS__);                       \
     })
 #else
     #define LOG_PROC(...) { }

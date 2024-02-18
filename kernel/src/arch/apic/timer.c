@@ -37,7 +37,7 @@ volatile bool g_doneSleeping;
 static void interruptHandler(InterruptStack_t *stack)
 {
     g_doneSleeping = true;
-    if (_CurrentProcess)
+    if (currentProcess())
     {
         Process_t *next = dispatch(stack);
         yield(next);

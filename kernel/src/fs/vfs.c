@@ -96,7 +96,7 @@ cleanup:
 
 VfsNode_t *vfs_openFile(const char *name, uint32_t attr)
 {
-    char *cwd = _CurrentProcess->cwd;
+    char *cwd = currentProcess()->cwd;
     char *path = normalizePath(cwd, name);
     if (!path)
         return NULL;
@@ -215,7 +215,7 @@ VfsNode_t *vfs_finddir(VfsNode_t *node, const char *name)
 
 static int getParent(const char *name, uint32_t attr, VfsNode_t **parent, const char **fileName)
 {
-    char *cwd = _CurrentProcess->cwd;
+    char *cwd = currentProcess()->cwd;
     char *path = normalizePath(cwd, name);    
     if (!path)
         return EPERM;

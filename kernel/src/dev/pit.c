@@ -11,7 +11,7 @@ volatile size_t g_countDown, g_timeTillCS;
 
 static void interruptHandler(InterruptStack_t *stack)
 {
-    if (_CurrentProcess)
+    if (currentProcess())
     {
         g_timeTillCS--;
         if (g_timeTillCS == 0)

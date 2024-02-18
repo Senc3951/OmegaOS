@@ -1,7 +1,7 @@
 #include <arch/apic/apic.h>
 #include <arch/apic/ipi.h>
-#include <arch/apic/madt.h>
 #include <arch/apic/timer.h>
+#include <arch/apic/madt.h>
 #include <arch/cpu.h>
 #include <arch/isr.h>
 #include <io/io.h>

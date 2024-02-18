@@ -38,6 +38,7 @@ static void rsdt_init(void *ptr, uint16_t version)
     if (version == 2)
         g_tables /= 2;
     
+    LOG("RSDT tables: ");
     for (size_t i = 0; i < g_tables; i++)
     {
         RSDTHeader_t *header;
@@ -45,8 +46,17 @@ static void rsdt_init(void *ptr, uint16_t version)
             header = (RSDTHeader_t *)((RSDT_t *)ptr)->tables[i];
         else
             header = (RSDTHeader_t *)((XSDT_t *)ptr)->tables[i];
-                
+        
         assert(validateTable(header, header->length));
+        for (size_t j = 0; j < 4; j++)
+            LOG("%c", header->signature[j]);
+        
+        if (i < g_tables - 1)
+        {
+            LOG(", ");
+        }
+        else
+            LOG("\n");   
     }
 }
 

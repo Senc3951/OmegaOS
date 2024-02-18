@@ -1,4 +1,5 @@
 #include <sys/scheduler.h>
+#include <arch/apic/apic.h>
 #include <mem/heap.h>
 #include <misc/queue.h>
 #include <io/io.h>
@@ -13,7 +14,6 @@
 
 extern void x64_context_switch(Context_t *ctx);
 
-Process_t *_CurrentProcess = NULL, *_IdleProcess = NULL;
 static Queue_t **g_processQueues = NULL;
 
 static Process_t *getNextProcess()
@@ -36,7 +36,7 @@ void scheduler_init()
     for (uint16_t i = 0; i < PROCESS_PRIORITIES_COUNT; i++)
        assert(g_processQueues[i] = queue_create());
     
-    scheduler_add(_IdleProcess);
+    scheduler_add(currentProcess());
     LOG("Scheduler initialized\n");
 }
 
@@ -54,37 +54,44 @@ void scheduler_remove(Process_t *process)
 
 void yield(Process_t *process)
 {
+    CoreContext_t *core = currentCPU();
     if (process)
-        _CurrentProcess = process;
+        core->currentProcess = process;
     else
-        _CurrentProcess = getNextProcess();
-        
-    SWITCH_PROCESS(_CurrentProcess);
+        core->currentProcess = getNextProcess();
+    
+    SWITCH_PROCESS(core->currentProcess);
 }
 
 Process_t *dispatch(InterruptStack_t *stack)
 {
-    _CurrentProcess->ctx.rip = stack->rip;
-    _CurrentProcess->ctx.cs = stack->cs;
-    _CurrentProcess->ctx.rsp = stack->rsp;
-    _CurrentProcess->ctx.rflags = stack->rflags;
-    _CurrentProcess->ctx.ss = stack->ds;
-    _CurrentProcess->ctx.rax = stack->rax;
-    _CurrentProcess->ctx.rbx = stack->rbx;
-    _CurrentProcess->ctx.rcx = stack->rcx;
-    _CurrentProcess->ctx.rdx = stack->rdx;
-    _CurrentProcess->ctx.rdi = stack->rdi;
-    _CurrentProcess->ctx.rsi = stack->rsi;
-    _CurrentProcess->ctx.rbp = stack->rbp;
-    _CurrentProcess->ctx.r8 = stack->r8;
-    _CurrentProcess->ctx.r9 = stack->r9;
-    _CurrentProcess->ctx.r10 = stack->r10;
-    _CurrentProcess->ctx.r11 = stack->r11;
-    _CurrentProcess->ctx.r12 = stack->r12;
-    _CurrentProcess->ctx.r13 = stack->r13;
-    _CurrentProcess->ctx.r14 = stack->r14;
-    _CurrentProcess->ctx.r15 = stack->r15;   
+    Process_t *current = currentProcess();
+    current->ctx.rip = stack->rip;
+    current->ctx.cs = stack->cs;
+    current->ctx.rsp = stack->rsp;
+    current->ctx.rflags = stack->rflags;
+    current->ctx.ss = stack->ds;
+    current->ctx.rax = stack->rax;
+    current->ctx.rbx = stack->rbx;
+    current->ctx.rcx = stack->rcx;
+    current->ctx.rdx = stack->rdx;
+    current->ctx.rdi = stack->rdi;
+    current->ctx.rsi = stack->rsi;
+    current->ctx.rbp = stack->rbp;
+    current->ctx.r8 = stack->r8;
+    current->ctx.r9 = stack->r9;
+    current->ctx.r10 = stack->r10;
+    current->ctx.r11 = stack->r11;
+    current->ctx.r12 = stack->r12;
+    current->ctx.r13 = stack->r13;
+    current->ctx.r14 = stack->r14;
+    current->ctx.r15 = stack->r15;   
     
-    queue_enqueue(g_processQueues[_CurrentProcess->priority], _CurrentProcess);
+    queue_enqueue(g_processQueues[current->priority], current);
     return getNextProcess();
+}
+
+Process_t *currentProcess()
+{
+    return currentCPU()->currentProcess;
 }

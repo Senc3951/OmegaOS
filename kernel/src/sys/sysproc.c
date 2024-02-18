@@ -9,11 +9,13 @@ void sys_exit(int status)
     UNUSED(status);
     
     __CLI();
-    assert(_CurrentProcess->id != ROOT_PID);
+
+    Process_t *current = currentProcess();
+    assert(current->id != ROOT_PID);
     
     // Delete the process
     LOG_PROC("sys_exit with status %d\n", status);
-    process_delete(_CurrentProcess);
+    process_delete(current);
     
     // Execute another process
     __STI();

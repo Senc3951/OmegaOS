@@ -43,6 +43,11 @@ void bsp_init()
 {
     CoreContext_t *bsp = &_Cores[0];
     bsp->id = apic_get_id();
+    bsp->currentProcess = NULL;
+
+    void *kstack = vmm_createIdentityPages(_KernelPML4, CORE_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
+    assert(kstack);
+    bsp->stack = (uint64_t)kstack + CORE_STACK_SIZE;
 }
 
 int _entry(BootInfo_t *bootInfo)
@@ -90,12 +95,12 @@ int _entry(BootInfo_t *bootInfo)
     ext2_init();            // Initialize root filesystem
     
     // Initialize user-space related 
-    syscalls_init();        // Initialize syscalls
-    process_init();         // Initialize process management
-    scheduler_init();       // Initialize the scheduler
+    syscalls_init();
+    Process_t *idle = process_init();
+    scheduler_init();
 
     extern void shell();
-    assert(process_create("Shell", shell, PriorityInteractive));
+    assert(process_create(idle, "Shell", shell, PriorityInteractive));
     
     LOG("Kernel initialization finished. Jumping to user space\n\n");
     lock_release(&g_coreLock);  // Allow other cores to start scheduling
@@ -109,7 +114,9 @@ int _entry(BootInfo_t *bootInfo)
 
 int ap_entry(CoreContext_t *context)
 {
-    LOG("[Core %u] Online. Stack at %p - %p\n", context->id, context->stack - context->stackSize, context->stack);
+    assert(context->id == apic_get_id());
+    
+    LOG("[Core %u] Online\n", context->id);
     gdt_load();
     idt_load();
     apic_set_registers();
@@ -117,10 +124,6 @@ int ap_entry(CoreContext_t *context)
     
     // For for bsp to finish initialization
     while (lock_used(&g_coreLock))
-        __PAUSE();
-    
-    __STI();
-    while (1)
         __PAUSE();
     
     __HCF();

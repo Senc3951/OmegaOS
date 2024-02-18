@@ -1,6 +1,6 @@
 #pragma once
 
-#include <common.h>
+#include <sys/process.h>
 
 #define LAPIC_ID                0x0020  // Local APIC ID
 #define LAPIC_VER               0x0030  // Local APIC Version
@@ -77,7 +77,7 @@ typedef struct CORE_CONTEXT
 {
     uint8_t id;
     uint64_t stack;
-    uint64_t stackSize;
+    Process_t *currentProcess;
 } __PACKED__ CoreContext_t;
 
 /// @brief Initialize the APIC.
