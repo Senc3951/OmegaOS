@@ -6,32 +6,42 @@
 static Framebuffer_t* g_fb;
 static PSF1Font_t* g_font;
 static uint32_t g_fbPitch;
-static uint32_t g_x, g_y, g_color;
+static uint32_t g_x, g_y, g_fg, g_bg;
 
-static void drawPixel(const uint32_t x, const uint32_t y, const uint32_t color)
+#define BYTE_SIZE       8
+#define BYTES_PER_CHAR  16
+
+#define ROW_SIZE    (g_fb->width * g_fb->bytesPerPixel)
+#define COL_SIZE    (g_fb->height * g_fb->bytesPerPixel * 8 / BYTES_PER_CHAR)
+#define ROW_COUNT   (g_fb->height / BYTE_SIZE)
+#define COL_COUNT   (g_fb->width / BYTES_PER_CHAR)
+
+static inline void drawPixel(const uint32_t x, const uint32_t y, const uint32_t color)
 {
-    *(uint32_t *)((uint64_t)(g_fb->baseAddress) + y * g_fbPitch + x * g_fb->bytesPerPixel) = color;
+    *(uint32_t *)((uint64_t)g_fb->baseAddress + y * g_fbPitch + x * g_fb->bytesPerPixel) = color;
 }
 
 static void drawc(const char c)
 {
-    char* fontPtr = (char *)g_font->glyphBuffer + (c * g_font->header->charsize);
-    for (uint32_t y = g_y; y < g_y + 16; y++)
+    char *fontPtr = (char *)g_font->glyphBuffer + (c * g_font->header->charsize);
+    for (uint32_t y = g_y; y < g_y + BYTES_PER_CHAR; y++)
     {
-        for (uint32_t x = g_x; x < g_x + 8; x++)
+        for (uint32_t x = g_x; x < g_x + BYTE_SIZE; x++)
         {
             if ((*fontPtr & (0b10000000 >> (x - g_x))) > 0)
-                drawPixel(x, y, g_color);
+                drawPixel(x, y, g_fg);
+            else
+                drawPixel(x, y, g_bg);
         }
                 
         fontPtr++;
     }
     
-    g_x += 8;
-    if (g_x + 8 > g_fb->width)
+    g_x += BYTE_SIZE;
+    if (g_x + BYTE_SIZE > g_fb->width)
     {
         g_x = 0;
-        g_y += 16;
+        g_y += BYTES_PER_CHAR;
     }
 }
 
@@ -40,24 +50,47 @@ void screen_init(Framebuffer_t *fb, PSF1Font_t *font)
     g_fb = fb;
     g_font = font;
     g_fbPitch = g_fb->bytesPerPixel * g_fb->pixelsPerScanLine;
-    g_color = White;
+    g_fg = White;
+    g_bg = Black;
     
     screen_clear(Black);
-    LOG("Framebuffer: %p (%ux%ux%u)\n", fb->baseAddress, fb->height, fb->width, fb->bytesPerPixel * 8);
+    LOG("Framebuffer at %p (%ux%ux%u)\n", fb->baseAddress, fb->height, fb->width, fb->bytesPerPixel * 8);
+}
+
+static void scroll()
+{
+    screen_clear(Black);
 }
 
 void screen_putc(const char c)
 {
+    if (g_y + BYTES_PER_CHAR > g_fb->height)
+        scroll();
+    
     switch (c)
     {
         case '\t':
-            g_x += 8 * CHARS_PER_TAB;
-            if (g_x + 8 <= g_fb->width)
+            g_x += BYTE_SIZE * CHARS_PER_TAB;
+            if (g_x + BYTE_SIZE <= g_fb->width)
                 break;
         case '\n':
             g_x = 0;
-            g_y += 16;
+            g_y += BYTES_PER_CHAR;
             
+            break;
+        case '\b':
+            if (g_y == 0 && g_x == 0)
+                break;
+            if (g_x == 0)
+            {
+                g_x = g_fb->width;
+                g_y--;
+            }
+            else
+                g_x -= BYTE_SIZE;
+            
+            break;
+        case '\0':
             break;
         default:
             drawc(c);
@@ -86,6 +119,7 @@ void kvprintf(va_list va, const char *fmt)
 
 void screen_clear(const uint32_t color)
 {
+    g_bg = color;
     if (color == Black)
         memset(g_fb->baseAddress, 0, g_fb->bufferSize);
     else

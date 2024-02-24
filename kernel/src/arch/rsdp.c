@@ -31,13 +31,14 @@ static void rsdt_init(void *ptr, uint16_t version)
         g_rsdt = (XSDT_t *)ptr;
     
     assert(validateTable(g_rsdt, ((RSDT_t *)ptr)->header.length));
-    LOG("RSDT: %p\n", ptr);
+    LOG("RSDT at %p. Version: %u\n", ptr, version);
     
     RSDTHeader_t *header = &((RSDT_t *)ptr)->header;
     g_tables = (header->length - sizeof(header)) / 4;
     if (version == 2)
         g_tables /= 2;
     
+    LOG("RSDT tables: ");
     for (size_t i = 0; i < g_tables; i++)
     {
         RSDTHeader_t *header;
@@ -45,8 +46,17 @@ static void rsdt_init(void *ptr, uint16_t version)
             header = (RSDTHeader_t *)((RSDT_t *)ptr)->tables[i];
         else
             header = (RSDTHeader_t *)((XSDT_t *)ptr)->tables[i];
-                
+        
         assert(validateTable(header, header->length));
+        for (size_t j = 0; j < 4; j++)
+            LOG("%c", header->signature[j]);
+        
+        if (i < g_tables - 1)
+        {
+            LOG(", ");
+        }
+        else
+            LOG("\n");   
     }
 }
 
@@ -59,7 +69,7 @@ void rsdp_init(void *ptr)
     if (rsdp->revision == 0)
         version = 1;
     
-    LOG("RSDP: %p. Version: %d\n", ptr, version);
+    LOG("RSDP at %p. Version: %d\n", ptr, version);
     assert(validateTable(ptr, sizeof(RSDP_t)));
     if (version == 2)
         assert(validateTable(ptr + sizeof(RSDP_t), 14));

@@ -1,389 +1,267 @@
 #include <mem/heap.h>
 #include <mem/vmm.h>
-#include <arch/spinlock.h>
+#include <arch/lock.h>
 #include <assert.h>
 #include <libc/string.h>
 #include <logger.h>
 
-#define NUM_BINS			11
-#define SMALLEST_BIN_LOG	2
-#define BIG_BIN				(NUM_BINS - 1)
-#define SMALLEST_BIN		(1ULL << SMALLEST_BIN_LOG)
-#define PAGE_MASK			(PAGE_SIZE - 1)
-#define SKIP_P				INT32_MAX
-#define SKIP_MAX_LEVEL		6
-#define BIN_MAGIC			0xF92C9DAB
-
-typedef struct _klmalloc_bin_header
-{
-	struct _klmalloc_bin_header *next;
-	void *head;
-	uintptr_t size;
-	uint32_t magic;
-} klmalloc_bin_header_t;
-
-typedef struct _klmalloc_big_bin_header
-{
-	struct _klmalloc_big_bin_header *next;
-	void *head;
-	uintptr_t size;
-	uint32_t magic;
-	struct _klmalloc_big_bin_header *prev;
-	struct _klmalloc_big_bin_header *forward[SKIP_MAX_LEVEL + 1];
-} klmalloc_big_bin_header_t;
-
-typedef struct _klmalloc_bin_header_head
-{
-	klmalloc_bin_header_t *first;
-} klmalloc_bin_header_head_t;
-
-static struct _klmalloc_big_bins
-{
-	klmalloc_big_bin_header_t head;
-	int level;
-} klmalloc_big_bins_t;
-
-static klmalloc_bin_header_head_t g_klmalloc_bin_head[NUM_BINS - 1];
-static klmalloc_big_bin_header_t * g_klmalloc_newest_big = NULL;
-static uint64_t g_heapEnd = 0;
+// https://wiki.osdev.org/User:Mrvn/LinkedListBucketHeapImplementation
 
 MAKE_SPINLOCK(g_lock);
 
-static uintptr_t __PURE__ klmalloc_adjust_bin(uintptr_t bin)
+typedef struct DList
 {
-	if (bin <= (uintptr_t)SMALLEST_BIN_LOG)
-		return 0;
-	
-	bin -= SMALLEST_BIN_LOG + 1;
-	if (bin > (uintptr_t)BIG_BIN)
-		return BIG_BIN;
-	
-	return bin;
+    struct DList *next;
+    struct DList *prev;
+} DList_t;
+
+static void dlist_init(DList_t *dlist)
+{
+    dlist->next = dlist;
+    dlist->prev = dlist;
 }
 
-static uintptr_t __PURE__ klmalloc_bin_size(uintptr_t size)
+static void dlist_insert_after(DList_t *d1, DList_t *d2)
 {
-	uintptr_t bin = sizeof(size) * 8 - __builtin_clzl(size);
-	bin += !!(size & (size - 1));
-	
-	return klmalloc_adjust_bin(bin);
+    DList_t *n1 = d1->next;
+    DList_t *e2 = d2->prev;
+ 
+    d1->next = d2;
+    d2->prev = d1;
+    e2->next = n1;
+    n1->prev = e2;
 }
 
-static void *expandHeap(uint32_t size)
+static void dlist_insert_before(DList_t *d1, DList_t *d2)
 {
-	if (size % PAGE_SIZE != 0)
-		return NULL;
-	if (g_heapEnd + size >= KERNEL_HEAP_END)
-		return NULL;
-	
-    void *ret = (void *)g_heapEnd;
-    g_heapEnd += size;
-
-    return ret;
+    DList_t *e1 = d1->prev;
+    DList_t *e2 = d2->prev;
+ 
+    e1->next = d2;
+    d2->prev = e1;
+    e2->next = d1;
+    d1->prev = e2;
 }
 
-static void klmalloc_list_decouple(klmalloc_bin_header_head_t *head, klmalloc_bin_header_t *node)
+static void dlist_remove(DList_t *d)
 {
-	klmalloc_bin_header_t *next	= node->next;
-	head->first = next;
-	node->next = NULL;
+    d->prev->next = d->next;
+    d->next->prev = d->prev;
+    d->next = d;
+    d->prev = d;    
+}
+ 
+static void dlist_push(DList_t **d1p, DList_t *d2)
+{
+    if (*d1p)
+        dlist_insert_before(*d1p, d2);
+    
+    *d1p = d2;
 }
 
-static void klmalloc_list_insert(klmalloc_bin_header_head_t *head, klmalloc_bin_header_t *node)
+static DList_t *dlist_pop(DList_t **dp)
 {
-	node->next = head->first;
-	head->first = node;
+    DList_t *d1 = *dp;
+    DList_t *d2 = d1->next;
+    dlist_remove(d1);
+    if (d1 == d2)
+        *dp = NULL;
+    else
+        *dp = d2;
+    
+    return d1;
 }
 
-static klmalloc_bin_header_t *klmalloc_list_head(klmalloc_bin_header_head_t *head)
+static void dlist_remove_from(DList_t **d1p, DList_t *d2)
 {
-	return head->first;
+    if (*d1p == d2)
+        dlist_pop(d1p);
+    else
+        dlist_remove(d2);
 }
 
-static uint32_t __PURE__ klmalloc_skip_rand()
-{
-	static uint32_t x = 123456789;
-	static uint32_t y = 362436069;
-	static uint32_t z = 521288629;
-	static uint32_t w = 88675123;
+#define CONTAINER(C, l, v)      ((C *)(((char *)v) - (intptr_t)&(((C *)0)->l)))
+#define OFFSETOF(TYPE, MEMBER)  __builtin_offsetof(TYPE, MEMBER)
 
-	uint32_t t;
-	t = x ^ (x << 11);
-	x = y; y = z; z = w;
-	
-	return w = w ^ (w >> 19) ^ t ^ (t >> 8);
+#define DLIST_INIT(v, l) dlist_init(&v->l)
+
+#define DLIST_REMOVE_FROM(h, d, l)					\
+    {									            \
+	typeof(**h) **h_ = h, *d_ = d;					\
+	DList_t *head = &(*h_)->l;					    \
+    dlist_remove_from(&head, &d_->l);				\
+	if (head == NULL) {						        \
+	    *h_ = NULL;							        \
+	} else {							            \
+	    *h_ = CONTAINER(typeof(**h), l, head);		\
+	}								                \
+    }
+
+#define DLIST_PUSH(h, v, l)						\
+    {									        \
+	typeof(*v) **h_ = h, *v_ = v;				\
+	DList_t *head = &(*h_)->l;					\
+	if (*h_ == NULL) head = NULL;				\
+	dlist_push(&head, &v_->l);					\
+	*h_ = CONTAINER(typeof(*v), l, head);		\
+    }
+
+#define DLIST_POP(h, l)							\
+    ({									        \
+	typeof(**h) **h_ = h;						\
+	DList_t *head = &(*h_)->l;					\
+	DList_t *res = dlist_pop(&head);			\
+	if (head == NULL) {						    \
+	    *h_ = NULL;							    \
+	} else {							        \
+	    *h_ = CONTAINER(typeof(**h), l, head);	\
+	}								            \
+	CONTAINER(typeof(**h), l, res);				\
+    })
+
+#define DLIST_ITERATOR_BEGIN(h, l, it)					                \
+    {									                                \
+        typeof(*h) *h_ = h;						                        \
+	DList_t *last_##it = h_->l.prev, *iter_##it = &h_->l, *next_##it;	\
+	do {								                                \
+	    if (iter_##it == last_##it) {				                    \
+		next_##it = NULL;					                            \
+	    } else {							                            \
+		next_##it = iter_##it->next;				                    \
+	    }								                                \
+	    typeof(*h)* it = CONTAINER(typeof(*h), l, iter_##it);
+
+#define DLIST_ITERATOR_END(it)						\
+	} while((iter_##it = next_##it));				\
+    }
+
+#define DLIST_ITERATOR_REMOVE_FROM(h, it, l) DLIST_REMOVE_FROM(h, iter_##it, l)
+
+typedef struct Chunk_t
+{
+    DList_t all;
+    int used;
+    union
+    {
+        char data[0];
+        DList_t free;
+    };
+} Chunk_t;
+
+#define NUM_SIZES       32
+#define ALIGN           4
+#define MIN_SIZE        sizeof(DList_t)
+#define HEADER_SIZE     OFFSETOF(Chunk_t, data)
+
+Chunk_t *g_freeChunks[NUM_SIZES] = { NULL };
+Chunk_t *g_first = NULL, *g_last = NULL;
+
+static void memory_chunk_init(Chunk_t *chunk)
+{
+    DLIST_INIT(chunk, all);
+    chunk->used = 0;
+    DLIST_INIT(chunk, free);
 }
 
-static int __PURE__ klmalloc_random_level()
+static size_t memory_chunk_size(const Chunk_t *chunk)
 {
-	int level = 0;
-	while (klmalloc_skip_rand() < SKIP_P && level < SKIP_MAX_LEVEL)
-		++level;
-	
-	return level;
+    char *end = (char *)(chunk->all.next);
+    char *start = (char *)(&chunk->all);
+    return (end - start) - HEADER_SIZE;
 }
 
-static klmalloc_big_bin_header_t *klmalloc_skip_list_findbest(uintptr_t search_size)
+static int memory_chunk_slot(size_t size)
 {
-	klmalloc_big_bin_header_t * node = &klmalloc_big_bins_t.head;
-	int i;
-	for (i = klmalloc_big_bins_t.level; i >= 0; --i)
-	{
-		while (node->forward[i] && (node->forward[i]->size < search_size))
-		{
-			node = node->forward[i];
-			if (node)
-				assert((node->size + sizeof(klmalloc_big_bin_header_t)) % PAGE_SIZE == 0);
-		}
-	}
+    int n = -1;
+    while (size > 0)
+    {
+        ++n;
+        size /= 2;
+    }
 
-	node = node->forward[0];
-	if (node)
-	{
-		assert((uintptr_t)node % PAGE_SIZE == 0);
-		assert((node->size + sizeof(klmalloc_big_bin_header_t)) % PAGE_SIZE == 0);
-	}
-
-	return node;
+    return n;
 }
 
-static void klmalloc_skip_list_insert(klmalloc_big_bin_header_t *value)
+static void remove_free(Chunk_t *chunk)
 {
-	assert(value != NULL);
-	assert(value->head != NULL);
-	assert((uintptr_t)value->head > (uintptr_t)value);
-	
-	if (value->size > NUM_BINS)
-	{
-		assert((uintptr_t)value->head < (uintptr_t)value + value->size);
-	}
-	else
-		assert((uintptr_t)value->head < (uintptr_t)value + PAGE_SIZE);
-	
-	assert((uintptr_t)value % PAGE_SIZE == 0);
-	assert((value->size + sizeof(klmalloc_big_bin_header_t)) % PAGE_SIZE == 0);
-	assert(value->size != 0);
-
-	klmalloc_big_bin_header_t * node = &klmalloc_big_bins_t.head;
-	klmalloc_big_bin_header_t * update[SKIP_MAX_LEVEL + 1];
-
-	int i;
-	for (i = klmalloc_big_bins_t.level; i >= 0; --i)
-	{
-		while (node->forward[i] && node->forward[i]->size < value->size)
-		{
-			node = node->forward[i];
-			if (node)
-				assert((node->size + sizeof(klmalloc_big_bin_header_t)) % PAGE_SIZE == 0);
-		}
-
-		update[i] = node;
-	}
-
-	node = node->forward[0];
-	if (node != value)
-	{
-		int level = klmalloc_random_level();
-		if (level > klmalloc_big_bins_t.level)
-		{
-			for (i = klmalloc_big_bins_t.level + 1; i <= level; ++i)
-				update[i] = &klmalloc_big_bins_t.head;
-			
-			klmalloc_big_bins_t.level = level;
-		}
-
-		node = value;
-		for (i = 0; i <= level; ++i)
-		{
-			node->forward[i] = update[i]->forward[i];
-			if (node->forward[i])
-				assert((node->forward[i]->size + sizeof(klmalloc_big_bin_header_t)) % PAGE_SIZE == 0);
-			
-			update[i]->forward[i] = node;
-		}
-	}
+    size_t len = memory_chunk_size(chunk);
+    int n = memory_chunk_slot(len);
+    DLIST_REMOVE_FROM(&g_freeChunks[n], chunk, free);
 }
 
-static void klmalloc_skip_list_delete(klmalloc_big_bin_header_t *value)
+static void push_free(Chunk_t *chunk)
 {
-	assert(value != NULL);
-	assert(value->head);
-	assert((uintptr_t)value->head > (uintptr_t)value);
-
-	if (value->size > NUM_BINS)
-	{
-		assert((uintptr_t)value->head < (uintptr_t)value + value->size);
-	}
-	else
-		assert((uintptr_t)value->head < (uintptr_t)value + PAGE_SIZE);
-	
-	klmalloc_big_bin_header_t *node = &klmalloc_big_bins_t.head;
-	klmalloc_big_bin_header_t *update[SKIP_MAX_LEVEL + 1];
-
-	int i;
-	for (i = klmalloc_big_bins_t.level; i >= 0; --i)
-	{
-		while (node->forward[i] && node->forward[i]->size < value->size)
-		{
-			node = node->forward[i];
-			if (node)
-				assert((node->size + sizeof(klmalloc_big_bin_header_t)) % PAGE_SIZE == 0);
-		}
-
-		update[i] = node;
-	}
-
-	node = node->forward[0];
-	while (node != value)
-		node = node->forward[0];
-
-	if (node != value)
-	{
-		node = klmalloc_big_bins_t.head.forward[0];
-		while (node->forward[0] && node->forward[0] != value)
-			node = node->forward[0];
-		
-		node = node->forward[0];
-	}
-	
-	if (node == value)
-	{
-		for (i = 0; i <= klmalloc_big_bins_t.level; ++i)
-		{
-			if (update[i]->forward[i] != node)
-				break;
-			
-			update[i]->forward[i] = node->forward[i];
-			if (update[i]->forward[i])
-			{
-				assert((uintptr_t)(update[i]->forward[i]) % PAGE_SIZE == 0);
-				assert((update[i]->forward[i]->size + sizeof(klmalloc_big_bin_header_t)) % PAGE_SIZE == 0);
-			}
-		}
-
-		while (klmalloc_big_bins_t.level > 0 && klmalloc_big_bins_t.head.forward[klmalloc_big_bins_t.level] == NULL)
-			--klmalloc_big_bins_t.level;
-	}
-}
-
-static void *klmalloc_stack_pop(klmalloc_bin_header_t *header)
-{
-	assert(header);
-	assert(header->head != NULL);
-	assert((uintptr_t)header->head > (uintptr_t)header);
-
-	if (header->size > NUM_BINS)
-	{
-		assert((uintptr_t)header->head < (uintptr_t)header + header->size);
-	}
-	else
-	{
-		assert((uintptr_t)header->head < (uintptr_t)header + PAGE_SIZE);
-		assert((uintptr_t)header->head > (uintptr_t)header + sizeof(klmalloc_bin_header_t) - 1);
-	}
-	
-	void *item = header->head;
-	uintptr_t **head = header->head;
-	uintptr_t *next = *head;
-	header->head = next;
-	
-	return item;
-}
-
-static void klmalloc_stack_push(klmalloc_bin_header_t *header, void *ptr)
-{
-	assert(ptr != NULL);
-	assert((uintptr_t)ptr > (uintptr_t)header);
-	
-	if (header->size > NUM_BINS) {
-		assert((uintptr_t)ptr < (uintptr_t)header + header->size);
-	} else {
-		assert((uintptr_t)ptr < (uintptr_t)header + PAGE_SIZE);
-	}
-
-	uintptr_t **item = (uintptr_t **)ptr;
-	*item = (uintptr_t *)header->head;
-	header->head = item;
-}
-
-static int klmalloc_stack_empty(klmalloc_bin_header_t *header)
-{
-	return header->head == NULL;
+    size_t len = memory_chunk_size(chunk);
+    int n = memory_chunk_slot(len);
+    DLIST_PUSH(&g_freeChunks[n], chunk, free);
 }
 
 void heap_init()
 {
-    g_heapEnd = (KERNEL_HEAP_START + PAGE_SIZE) & ~0xFFF;
-    vmm_createPages(_KernelPML4, (void *)KERNEL_HEAP_START, (KERNEL_HEAP_END - KERNEL_HEAP_START) / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
-	
-	LOG("Kernel heap: %p - %p\n", KERNEL_HEAP_START, KERNEL_HEAP_END);
+    uint64_t pages = KERNEL_HEAP_SIZE / PAGE_SIZE;
+    vmm_createPages(_KernelPML4, (void *)KERNEL_HEAP_START, pages, VMM_USER_ATTRIBUTES);
+    LOG("Kernel heap at %p - %p (%llu pages)\n", KERNEL_HEAP_START, KERNEL_HEAP_END, pages);
+    
+    char *memStart = (char *)(((intptr_t)KERNEL_HEAP_START + ALIGN - 1) & (~(ALIGN - 1)));
+    char *memEnd = (char *)(((intptr_t)KERNEL_HEAP_START + KERNEL_HEAP_SIZE) & (~(ALIGN - 1)));
+    g_first = (Chunk_t *)memStart;
+    Chunk_t *second = g_first + 1;
+    g_last = ((Chunk_t *)memEnd) - 1;
+    
+    memory_chunk_init(g_first);
+    memory_chunk_init(second);
+    memory_chunk_init(g_last);
+    dlist_insert_after(&g_first->all, &second->all);
+    dlist_insert_after(&second->all, &g_last->all);
+    g_first->used = 1;
+    g_last->used = 1;
+ 
+    size_t len = memory_chunk_size(second);
+    int n = memory_chunk_slot(len);
+    DLIST_PUSH(&g_freeChunks[n], second, free);
 }
 
 __MALLOC__ void *kmalloc(size_t size)
 {
-    if (!size)
-		return NULL;
-	
-	spinlock_acquire(&g_lock);
-    uint32_t bucket_id = klmalloc_bin_size(size);
-	if (bucket_id < BIG_BIN)
+    size = (size + ALIGN - 1) & (~(ALIGN - 1));
+    if (size < MIN_SIZE)
+        size = MIN_SIZE;
+    
+    lock_acquire(&g_lock);
+    int n = memory_chunk_slot(size - 1) + 1;
+    if (n >= NUM_SIZES)
+    {        
+        lock_release(&g_lock);
+        return NULL;
+    }
+    
+    while (!g_freeChunks[n])
     {
-		klmalloc_bin_header_t *bin_header = klmalloc_list_head(&g_klmalloc_bin_head[bucket_id]);
-		if (!bin_header)
-		{
-			bin_header = (klmalloc_bin_header_t*)expandHeap(PAGE_SIZE);
-			bin_header->magic = BIN_MAGIC;
-			assert((uintptr_t)bin_header % PAGE_SIZE == 0);
+        ++n;
+        if (n >= NUM_SIZES)
+        {
+            lock_release(&g_lock);
+            return NULL;
+        }
+    }
+    
+    Chunk_t *chunk = DLIST_POP(&g_freeChunks[n], free);
+    size_t len = 0, size2 = memory_chunk_size(chunk);
+    if (size + sizeof(Chunk_t) <= size2)
+    {
+        Chunk_t *chunk2 = (Chunk_t *)(((char *)chunk) + HEADER_SIZE + size);
+        memory_chunk_init(chunk2);
+        dlist_insert_after(&chunk->all, &chunk2->all);
 
-			bin_header->head = (void*)((uintptr_t)bin_header + sizeof(klmalloc_bin_header_t));
-			klmalloc_list_insert(&g_klmalloc_bin_head[bucket_id], bin_header);
-			uintptr_t adj = SMALLEST_BIN_LOG + bucket_id;
-			uintptr_t i, available = ((PAGE_SIZE - sizeof(klmalloc_bin_header_t)) >> adj) - 1;
+        len = memory_chunk_size(chunk2);
+        int n = memory_chunk_slot(len);
+        DLIST_PUSH(&g_freeChunks[n], chunk2, free);
+    }
 
-			uintptr_t **base = bin_header->head;
-			for (i = 0; i < available; ++i)
-				base[i << bucket_id] = (uintptr_t *)&base[(i + 1) << bucket_id];
-			
-			base[available << bucket_id] = NULL;
-			bin_header->size = bucket_id;
-		}
+    chunk->used = 1;
+    lock_release(&g_lock);
 
-		uintptr_t **item = klmalloc_stack_pop(bin_header);
-		if (klmalloc_stack_empty(bin_header))
-			klmalloc_list_decouple(&(g_klmalloc_bin_head[bucket_id]),bin_header);
-		
-		spinlock_release(&g_lock);
-		return item;
-	} else {
-		klmalloc_big_bin_header_t *bin_header = klmalloc_skip_list_findbest(size);
-		if (bin_header)
-		{
-			assert(bin_header->size >= size);
-			klmalloc_skip_list_delete(bin_header);
-			uintptr_t **item = klmalloc_stack_pop((klmalloc_bin_header_t *)bin_header);
-			
-			spinlock_release(&g_lock);
-			return item;
-		} else {
-			uintptr_t pages = (size + sizeof(klmalloc_big_bin_header_t)) / PAGE_SIZE + 1;
-			bin_header = (klmalloc_big_bin_header_t*)expandHeap(PAGE_SIZE * pages);
-			bin_header->magic = BIN_MAGIC;
-			assert((uintptr_t)bin_header % PAGE_SIZE == 0);
-			
-			bin_header->size = pages * PAGE_SIZE - sizeof(klmalloc_big_bin_header_t);
-			assert((bin_header->size + sizeof(klmalloc_big_bin_header_t)) % PAGE_SIZE == 0);
-			bin_header->prev = g_klmalloc_newest_big;
-			if (bin_header->prev)
-				bin_header->prev->next = bin_header;
-			
-			g_klmalloc_newest_big = bin_header;
-			bin_header->next = NULL;
-			bin_header->head = NULL;
-
-			spinlock_release(&g_lock);
-			return (void *)((uintptr_t)bin_header + sizeof(klmalloc_big_bin_header_t));
-		}
-	}
+    return chunk->data;
 }
 
 __MALLOC__ void *kcalloc(size_t size)
@@ -396,67 +274,53 @@ __MALLOC__ void *kcalloc(size_t size)
     return addr;
 }
 
-__MALLOC__ void *krealloc(void *ptr, size_t size)
+__MALLOC__ void *krealloc(void *addr, size_t ns)
 {
-	if (!ptr)
-		return kmalloc(size);
-	if (!size)
-    	return NULL;
+    if (!addr)
+        return NULL;
+    
+    lock_acquire(&g_lock);
+    Chunk_t *chunk = (Chunk_t *)((char *)addr - HEADER_SIZE);
+    size_t chunkSize = memory_chunk_size(chunk);
+    lock_release(&g_lock);
 
-	klmalloc_bin_header_t *header_old = (void *)((uintptr_t)ptr & (uintptr_t)~PAGE_MASK);
-	assert(header_old->magic == BIN_MAGIC);
-
-	uintptr_t old_size = header_old->size;
-	if (old_size < (uintptr_t)BIG_BIN)
-		old_size = (1UL << (SMALLEST_BIN_LOG + old_size));
-	
-	if (old_size >= size)
-		return ptr;
-	
-	void *newptr = kmalloc(size);
-	if (newptr)
-	{
-		memcpy(newptr, ptr, old_size);
-		kfree(ptr);
-
-		return newptr;
-	}
-	
-	return NULL;
+    void *ptr = kmalloc(ns);
+    if (!ptr)
+        return NULL;
+    
+    memcpy(ptr, addr, chunkSize);
+    kfree(addr);
+    return ptr;
 }
 
-void kfree(void *ptr)
+void kfree(void *addr)
 {
-	if (__builtin_expect(ptr == NULL, 0))
-		return;
-
-	spinlock_acquire(&g_lock);
-	if ((uintptr_t)ptr % PAGE_SIZE == 0)
-		ptr = (void *)((uintptr_t)ptr - 1);
-
-	klmalloc_bin_header_t * header = (klmalloc_bin_header_t *)((uintptr_t)ptr & (uintptr_t)~PAGE_MASK);
-	assert((uintptr_t)header % PAGE_SIZE == 0);
-	assert(header->magic == BIN_MAGIC);
-
-	uintptr_t bucket_id = header->size;
-	if (bucket_id > (uintptr_t)NUM_BINS)
-	{
-		bucket_id = BIG_BIN;
-		klmalloc_big_bin_header_t *bheader = (klmalloc_big_bin_header_t*)header;
-		
-		assert(bheader);
-		assert(bheader->head == NULL);
-		assert((bheader->size + sizeof(klmalloc_big_bin_header_t)) % PAGE_SIZE == 0);
-	
-		klmalloc_stack_push((klmalloc_bin_header_t *)bheader, (void *)((uintptr_t)bheader + sizeof(klmalloc_big_bin_header_t)));
-		assert(bheader->head != NULL);
-		klmalloc_skip_list_insert(bheader);
-	} else {
-		if (klmalloc_stack_empty(header))
-			klmalloc_list_insert(&g_klmalloc_bin_head[bucket_id], header);
-		
-		klmalloc_stack_push(header, ptr);
-	}
-
-	spinlock_release(&g_lock);
+    if (!addr)
+        return;
+    
+    lock_acquire(&g_lock);
+    Chunk_t *chunk = (Chunk_t *)((char*)addr - HEADER_SIZE);
+    assert(chunk->used);
+    
+    Chunk_t *next = CONTAINER(Chunk_t, all, chunk->all.next);
+    Chunk_t *prev = CONTAINER(Chunk_t, all, chunk->all.prev);
+    if (next->used == 0)
+    {
+        remove_free(next);
+        dlist_remove(&next->all);
+    }
+    if (prev->used == 0)
+    {
+        remove_free(prev);
+        dlist_remove(&chunk->all);
+        push_free(prev);
+    }
+    else
+    {
+        chunk->used = 0;
+        DLIST_INIT(chunk, free);
+        push_free(chunk);
+    }
+    
+    lock_release(&g_lock);
 }

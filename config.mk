@@ -1,13 +1,15 @@
 DEBUG := true
-OPTIMISATION := -O2
+OPTIMISATION := -O3
 
 export OS_NAME := OmegaOS
+export SMP_CORES := 2
 
 export GNU_EFI_DIR := $(abspath gnu-efi)
 export RESOURCES_DIR := $(abspath resources)
 export OVMF_DIR := $(abspath OVMFbin)
 export OBJ_DIR := $(abspath obj)
 export OUTPUT_DIR := $(abspath output)
+export LIBC_DIR := $(abspath ulibc)
 
 export KERNEL_DIR := kernel
 export OUTPUT_KERNEL := $(OUTPUT_DIR)/kernel.elf
@@ -23,7 +25,7 @@ export AFLAGS := -f elf64 $(OPTIMISATION)
 export CFLAGS := -m64 $(OPTIMISATION)
 export LFLAGS := -nostdlib $(OPTIMISATION)
 export QEMU := qemu-system-x86_64
-export QFLAGS := -machine q35 -cpu max -m 2G -smp 2 -d cpu_reset \
+export QFLAGS := -machine q35 -cpu max -smp $(SMP_CORES) -m 2G -d cpu_reset \
 	-rtc base=localtime -net none -serial stdio \
 	-device piix3-ide,id=ide -drive id=disk,file=$(ROOTFS_FILE),format=raw,if=none \
 	-device ide-hd,drive=disk,bus=ide.0 \
@@ -32,6 +34,6 @@ export QFLAGS := -machine q35 -cpu max -m 2G -smp 2 -d cpu_reset \
 
 ifeq ($(DEBUG), true)
 	AFLAGS += -g
-	CFLAGS += -g -D DEBUG
+	CFLAGS += -g -D DEBUG -D SYS_DEBUG
 	LFLAGS += -g
 endif

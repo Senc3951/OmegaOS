@@ -1,6 +1,7 @@
 bits 64
 
-KERNEL_DS equ 0x10
+%define KERNEL_DS   0x10
+%define SYSCALL_INT 0x80
 
 extern isr_interrupt_handler
 global interruptHandlers
@@ -9,7 +10,7 @@ global interruptHandlers
     global INT%1
     INT%1:
         %if %2 == 1
-            push qword 0    ; Push dummy error code
+            push qword 0    ; push dummy error code
         %endif
         
         push qword %1
@@ -49,7 +50,6 @@ global interruptHandlers
     pop rdx
     pop rdx
     pop rbx
-    pop rax
 %endmacro
 
 %include "src/arch/isra.inc"
@@ -57,27 +57,39 @@ global interruptHandlers
 isr_common:
     cld
     pushaq
-        
+
+    ; store current segments
     xor rax, rax
     mov ax, ds
     push rax
     
-    mov ax, KERNEL_DS   ; switch to kernel ds
+    ; handle inside kernel segments
+    mov ax, KERNEL_DS
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
-
+    
     mov rdi, rsp
     call isr_interrupt_handler
     
-    pop rax     ; restore ds
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
+    ; restore saved segments
+    pop rbx
+    mov ds, bx
+    mov es, bx
+    mov fs, bx
+    mov gs, bx
     
+    ; restore registers
     popaq
+    
+    cmp word [rsp + 8], SYSCALL_INT ; check if should restore rax or not
+    je .syscall
+    pop rax                         ; restore rax
+    jmp .continue
+.syscall:
+    add rsp, 8      ; don't overwrite the return value
+.continue:
     add rsp, 16     ; remove interrupt number and error code    
     iretq
 

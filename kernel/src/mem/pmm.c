@@ -1,4 +1,5 @@
 #include <mem/pmm.h>
+#include <arch/lock.h>
 #include <assert.h>
 #include <libc/string.h>
 #include <logger.h>
@@ -9,6 +10,7 @@ static MemoryDescriptor_t *g_mmap;
 static uint64_t g_mmapSize, g_mmapDescriptorSize;
 static uint64_t g_bitmapSize, g_bitmapElementSize, g_lastFoundBitmap;
 static uint64_t *g_bitmap;
+MAKE_SPINLOCK(g_lock);
 
 static void setFrame(const uint64_t index)
 {
@@ -33,6 +35,8 @@ static bool testFrame(const uint64_t i, const uint8_t bit)
 
 static uint64_t getFrames(const size_t frames)
 {
+    lock_acquire(&g_lock);
+
     bool fbFound = false;
     uint64_t j, index = 0, bCopy = frames;
     for (uint64_t i = g_lastFoundBitmap; i < g_bitmapSize; i++)
@@ -72,12 +76,14 @@ static uint64_t getFrames(const size_t frames)
         }
     }
 
+    lock_release(&g_lock);
     if (g_lastFoundBitmap == 0)
         return INVALID_FRAME_INDEX;
     
     g_lastFoundBitmap = 0;
     return getFrames(frames);
 found:
+    lock_release(&g_lock);
     return index;
 }
 
@@ -100,6 +106,8 @@ void pmm_init(MemoryDescriptor_t *mmap, const uint64_t mmapSize, const uint64_t 
         {
             largestMemSegment = desc->numberOfPages;
             largestSegment = desc;
+            
+            LOG("Physical memory region at %p - %p\n", desc->physicalStart, desc->physicalStart + desc->numberOfPages * PAGE_SIZE);
         }
     }
 
@@ -111,7 +119,7 @@ void pmm_init(MemoryDescriptor_t *mmap, const uint64_t mmapSize, const uint64_t 
     g_bitmap = (uint64_t *)largestSegment->physicalStart;
     uint64_t bitmapSizeInBytes = g_bitmapSize * sizeof(*g_bitmap);
     assert(bitmapSizeInBytes < largestMemSegment);  // Segment must be large enough to hold the bitmap
-    LOG("Bitmap: %p (%llu bytes)\n", g_bitmap, bitmapSizeInBytes);
+    LOG("Bitmap at %p (%llu bytes)\n", g_bitmap, bitmapSizeInBytes);
     
     // Reserve entire memory
     memset(g_bitmap, 0xFF, bitmapSizeInBytes);

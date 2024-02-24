@@ -102,7 +102,7 @@ static Inode_t *readInode(const uint32_t ino)
     
     uint32_t blockOffset = (inodeIndex % INODES_PER_BLOCK) * g_superBlock.s_inode_size;
     memcpy(inode, g_tmpBuf + blockOffset, g_superBlock.s_inode_size);
-    
+        
     return inode;
 }
 
@@ -419,6 +419,9 @@ static int deleteBlock(uint32_t block)
 
 static int deleteInodeFromDir(Inode_t *parentInode, uint32_t pino, const char *name, uint32_t *ino)
 {
+    if (!strcmp(name, FS_PATH_CURR_DIR) || !strcmp(name, FS_PATH_UP_DIR))
+        return EACCES;
+    
     int ret = ENOENT;
     uint8_t *tmpBuf = (uint8_t *)kmalloc(g_blockSize);
     if (!tmpBuf)
@@ -551,7 +554,30 @@ static int deleteInode(Inode_t *inode, uint32_t ino)
     return ENOER;
 }
 
-static Inode_t *createInode(Inode_t *parentInode, const uint32_t pino, const char *name, uint32_t attr, uint32_t *newIno)
+static Inode_t *createInode(Inode_t *parentInode, const uint32_t pino, const char *name, uint32_t attr, uint32_t ino)
+{
+    Inode_t *inode = readInode(ino);
+    if (!inode)
+        return NULL;
+    
+    // Write the new inode
+    INIT_INODE(inode);
+    if (!writeInode(ino, inode))
+    {
+        kfree(inode);
+        return NULL;
+    }
+
+    if (!insertInodeInDir(parentInode, pino, ino, name, getFileType(attr)))
+    {
+        kfree(inode);
+        return NULL;
+    }
+       
+    return inode;
+}
+
+static Inode_t *allocateAndCreateInode(Inode_t *parentInode, const uint32_t pino, const char *name, uint32_t attr, uint32_t *newIno)
 {
     uint8_t *inodeBitmap = (uint8_t *)kmalloc(g_blockSize);
     if (!inodeBitmap)
@@ -591,26 +617,8 @@ found_bit:
     if (!newInoNum)
         return NULL;
     
-    Inode_t *inode = readInode(newInoNum);
-    if (!inode)
-        return NULL;
-    
-    // Write the new inode
-    INIT_INODE(inode);
-    if (!writeInode(newInoNum, inode))
-    {
-        kfree(inode);
-        return NULL;
-    }
-
-    if (!insertInodeInDir(parentInode, pino, newInoNum, name, getFileType(attr)))
-    {
-        kfree(inode);
-        return NULL;
-    }
-    
-    *newIno = newInoNum;    
-    return inode;
+    *newIno = newInoNum;
+    return createInode(parentInode, pino, name, attr, newInoNum);
 }
 
 static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
@@ -618,7 +626,7 @@ static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
     Inode_t *inode = readInode(ino);
     if (!inode)
         return NULL;
-    
+        
     VfsNode_t *node = (VfsNode_t *)kmalloc(sizeof(VfsNode_t));
     if (!node)
     {
@@ -631,7 +639,7 @@ static VfsNode_t *ino2vfs(const uint32_t ino, const char *name)
     node->uid = inode->i_uid;
     node->gid = inode->i_gid;
     node->size = inode->i_size;
-    node->attr = inode->i_mode & 0xFFF;
+    node->mode = inode->i_mode & 0xFFF;
     node->atime = inode->i_atime;
     node->mtime = inode->i_mtime;
     node->ctime = inode->i_ctime;
@@ -710,6 +718,7 @@ void ext2_init()
     // Set ext2 as root filesystem
     assert(_RootFS = ino2vfs(INODE_ROOT, "/"));
     assert((_RootFS->flags & FS_DIR) == FS_DIR);
+    LOG("Ext2 filesystem mounted at /\n");
 }
 
 ssize_t ext2_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
@@ -1044,7 +1053,7 @@ int ext2_create(VfsNode_t *node, const char *name, uint32_t attr)
     
     // Create the new file
     uint32_t newIno;
-    Inode_t *newInode = createInode(parentInode, node->inode, name, attr | I_FILE, &newIno);
+    Inode_t *newInode = allocateAndCreateInode(parentInode, node->inode, name, (attr & ~I_DIR) | I_FILE, &newIno);
     kfree(parentInode);
     if (!newInode)
         return EPERM;
@@ -1069,12 +1078,30 @@ int ext2_mkdir(VfsNode_t *node, const char *name, uint32_t attr)
         return ENOTDIR;
     
     // Create the new file
-    uint32_t newIno;
-    Inode_t *newInode = createInode(parentInode, node->inode, name, attr | I_DIR, &newIno);
+    uint32_t newIno, eino;
+    Inode_t *newInode = allocateAndCreateInode(parentInode, node->inode, name, (attr & ~I_FILE) | I_DIR, &newIno);
     kfree(parentInode);
     if (!newInode)
         return EPERM;
     
+    // Create current directory pointer (inode - current directory)
+    Inode_t *currentDirectoryInode = allocateAndCreateInode(newInode, newIno, FS_PATH_CURR_DIR, I_FILE, &eino);
+    if (!currentDirectoryInode)
+    {
+        kfree(currentDirectoryInode);
+        return EPERM;
+    }
+    kfree(currentDirectoryInode);
+    
+    // Create parent directory pointer (inode - parent directory)
+    Inode_t *previousDirectoryInode = allocateAndCreateInode(newInode, newIno, FS_PATH_UP_DIR, I_FILE, &eino);
+    if (!previousDirectoryInode)
+    {
+        kfree(previousDirectoryInode);
+        return EPERM;
+    }
+    
+    kfree(previousDirectoryInode);
     kfree(newInode);
     return ENOER;
 }

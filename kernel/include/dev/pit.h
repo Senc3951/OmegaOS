@@ -34,5 +34,9 @@
 void pit_init(const uint16_t frequency);
 
 /// @brief Sleep for a specified amount of milliseconds
-/// @param milliseconds Milliseconds to sleep.
-void sleep(const size_t milliseconds);
+/// @param ms Milliseconds to sleep.
+void pit_sleep_no_int(const size_t ms);
+
+/// @brief Sleep for a specified amount of milliseconds
+/// @param ms Milliseconds to sleep.
+void pit_sleep(const size_t ms);

@@ -1,0 +1,4 @@
+Better syscalls -1
+SMP scheduling 999
+fix scheduling (starvation on higher priority) -1
+better keyboard handler 10

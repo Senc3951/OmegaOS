@@ -68,6 +68,11 @@ void vmm_destroyAddressSpace(PageTable_t *parent, PageTable_t *pml4);
 /// @return New address space.
 PageTable_t *vmm_createAddressSpace(PageTable_t *parent);
 
+/// @brief Destroy an address space.
+/// @param parent Parent page table.
+/// @param pml4 Page table to destroy.
+void vmm_destroyAddressSpace(PageTable_t *parent, PageTable_t *pml4);
+
 /// @brief Switch the pml4 table.
 /// @param pml4 Table to switch.
 void vmm_switchTable(PageTable_t *pml4);
@@ -116,7 +121,7 @@ void *vmm_createPage(PageTable_t *pml4, void *virt, const uint64_t attr);
 /// @param virt Virtual address to map the page to.
 /// @param pages Pages to map.
 /// @param attr Attributes of the page.
-/// @return Virtual address of the page.
+/// @return Last virtual address of the page.
 void *vmm_createPages(PageTable_t *pml4, void *virt, const uint64_t pages, const uint64_t attr);
 
 /// @brief Allocate a virtual page and map it in the page table.
@@ -124,5 +129,12 @@ void *vmm_createPages(PageTable_t *pml4, void *virt, const uint64_t pages, const
 /// @param attr Attributes of the page.
 /// @return Virtual address of the page.
 void *vmm_createIdentityPage(PageTable_t *pml4, const uint64_t attr);
+
+/// @brief Create identity mapped pages.
+/// @param pml4 Table to perform the operation on.
+/// @param pages Pages to map.
+/// @param attr Attributes of the page.
+/// @return Physical address of the first page, NULL, if failed.
+void *vmm_createIdentityPages(PageTable_t *pml4, const uint64_t pages, const uint64_t attr);
 
 extern PageTable_t *_KernelPML4;

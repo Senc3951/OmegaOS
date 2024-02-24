@@ -12,9 +12,9 @@ x86_64 UEFI-based SMP operating system built from scratch.
 - [x] Filesystem (ext2)
 - [x] Process management
 - [x] User space
+- [x] Shell
 - [x] APIC
 - [x] SMP
-- [ ] ACPI
 - [ ] USB
 - [ ] Network
 
@@ -40,9 +40,6 @@ On a seperate terminal, run the following commands
 gdb
 target remote localhost:1234
 symbol-file output/kernel.elf
-layout src
-b _entry
-c
 ```
 
 ## Contribute

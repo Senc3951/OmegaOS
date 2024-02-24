@@ -6,10 +6,13 @@
 
 VfsNode_t *_RootFS = NULL;
 
-static char *normalizePath(char *cwd, const char *path)
+char *normalizePath(char *cwd, const char *path)
 {
     char *output = NULL;
     list_t *lst = list_create();
+    if (!lst)
+        return NULL;
+    
     if (*path && *path != FS_PATH_SEPERATOR)
     {
         // Path is relative, push working directory
@@ -93,7 +96,7 @@ cleanup:
 
 VfsNode_t *vfs_openFile(const char *name, uint32_t attr)
 {
-    char *cwd = _CurrentProcess->cwd;
+    char *cwd = currentProcess()->cwd;
     char *path = normalizePath(cwd, name);
     if (!path)
         return NULL;
@@ -156,20 +159,24 @@ VfsNode_t *vfs_openFile(const char *name, uint32_t attr)
 
 ssize_t vfs_read(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
 {
-    if (!node || !node->read)
+    if (!node || !node->read || (node->attr & O_WRONLY))
         return -EPERM;
     if ((node->flags & FS_FILE) != FS_FILE)
         return -EISDIR;
+    if (!size)
+        return 0;
     
     return node->read(node, offset, size, buffer);
 }
 
 ssize_t vfs_write(VfsNode_t *node, uint32_t offset, size_t size, void *buffer)
 {
-    if (!node || !node->write)
+    if (!node || !node->write || (node->attr & O_RDONLY))
         return -EPERM;
     if ((node->flags & FS_FILE) != FS_FILE)
         return -EISDIR;
+    if (!size)
+        return 0;
     
     return node->write(node, offset, size, buffer);
 }
@@ -208,7 +215,7 @@ VfsNode_t *vfs_finddir(VfsNode_t *node, const char *name)
 
 static int getParent(const char *name, uint32_t attr, VfsNode_t **parent, const char **fileName)
 {
-    char *cwd = _CurrentProcess->cwd;
+    char *cwd = currentProcess()->cwd;
     char *path = normalizePath(cwd, name);    
     if (!path)
         return EPERM;

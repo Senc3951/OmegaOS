@@ -35,19 +35,15 @@ TreeNode_t *tree_create_node(void *value)
     return node;
 }
 
-void tree_insert(Tree_t *tree, TreeNode_t *parent, void *value)
+void tree_insert(Tree_t *tree, TreeNode_t *parent, TreeNode_t *node)
 {
-    TreeNode_t *new = tree_create_node(value);
-    if (!new)
-        return;
+    lock_acquire(&tree->lock);
 
-    spinlock_acquire(&tree->lock);
-
-    list_insert(parent->children, new);
-    new->parent = parent;
+    list_insert(parent->children, node);
+    node->parent = parent;
     tree->nodes++;
-
-    spinlock_release(&tree->lock);
+    
+    lock_release(&tree->lock);
 }
 
 void tree_remove(Tree_t *tree, TreeNode_t *node)
@@ -55,7 +51,7 @@ void tree_remove(Tree_t *tree, TreeNode_t *node)
     TreeNode_t *parent = node->parent;
     tree->nodes--;
 
-    spinlock_acquire(&tree->lock);
+    lock_acquire(&tree->lock);
     
     list_delete(parent->children, list_find(parent->children, node));
     foreach(child, node->children)
@@ -65,6 +61,6 @@ void tree_remove(Tree_t *tree, TreeNode_t *node)
     
     list_merge(parent->children, node->children);
     kfree(node);
-
-    spinlock_release(&tree->lock);
+    
+    lock_release(&tree->lock);
 }

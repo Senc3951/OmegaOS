@@ -4,6 +4,10 @@
 
 #define IDT_ENTRIES     256
 
+#define IRQ_IST     1
+#define PIT_IST     2
+#define PS2_KBD_IST 3
+
 /// @brief Entry in the IDT.
 typedef struct IDT_ENTRY
 {

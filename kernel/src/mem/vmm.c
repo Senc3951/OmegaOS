@@ -3,8 +3,8 @@
 #include <mem/heap.h>
 #include <arch/isr.h>
 #include <arch/cpu.h>
-#include <sys/scheduler.h>
-#include <sys/syscalls.h>
+#include <arch/lock.h>
+#include <syscall/syscalls.h>
 #include <assert.h>
 #include <panic.h>
 #include <libc/string.h>
@@ -28,6 +28,7 @@ enum PageFaultReason
 };
 
 PageTable_t *_KernelPML4 = NULL;
+MAKE_SPINLOCK(g_lock);
 
 static void setEntry(PageTableEntry_t *entry, uint64_t addr, uint64_t attr)
 {
@@ -55,20 +56,26 @@ static void pageFaultHandler(InterruptStack_t *stack)
 {
     uint64_t virtAddr = READ_CR2();
     uint64_t errCode = stack->errorCode;
-    if (!(errCode & PF_USER))
-       ipanic(stack, "Page fault in kernel");
+    if (!isUserInterrupt(stack) || !(errCode & PF_USER))
+        panic("Kernel attempted to access an illegal address %p (0x%x)", virtAddr, errCode);
     
-    PageTable_t *pml4 = _CurrentProcess->pml4;
-    if (errCode & PF_PRESENT)
+    virtAddr = RNDWN(virtAddr, PAGE_SIZE);
+    PageTable_t *pml4 = currentProcess()->pml4;
+    if (errCode & PF_PRESENT || errCode & PF_WRITABLE)
     {
         void *frame = pmm_getFrame();
         assert(frame);
         
         vmm_mapPage(pml4, frame, (void *)virtAddr, VMM_USER_ATTRIBUTES);
         FLUSH_TLB(virtAddr);
+
+        LOG_PROC("Mapped %p to %p\n", virtAddr, frame);
     }
     else
+    {
         sys_exit(0);
+        LOG_PROC("Terminated process because it attempted to access an illegal address %p (0x%x)\n", virtAddr, errCode);
+    }
 }
 
 void vmm_init(const Framebuffer_t *fb)
@@ -82,8 +89,8 @@ void vmm_init(const Framebuffer_t *fb)
     // Create the PML4 table.
     assert(_KernelPML4 = (PageTable_t *)pmm_getFrame());
     memset(_KernelPML4, 0, PAGE_SIZE);
-    LOG("Kernel PML4: %p\n", _KernelPML4);
-
+    LOG("Kernel PML4 at %p\n", _KernelPML4);
+    
     // Identity map entire memory
     uint64_t memEnd = RNDUP(pmm_getMemorySize(), PAGE_SIZE);
     for (uint64_t addr = 0; addr < memEnd; addr += PAGE_SIZE)
@@ -112,8 +119,20 @@ void vmm_init(const Framebuffer_t *fb)
     vmm_switchTable(_KernelPML4);
 }
 
+PageTable_t *vmm_createAddressSpace(PageTable_t *parent)
+{
+    PageTable_t *pml4 = vmm_createIdentityPage(parent, VMM_USER_ATTRIBUTES);
+    if (!pml4)
+        return NULL;
+    
+    memcpy(pml4, parent, PAGE_SIZE);
+    return pml4;
+}
+
 void vmm_destroyAddressSpace(PageTable_t *parent, PageTable_t *pml4)
 {
+    return;
+    
     uint16_t i, j, k, m;
     PageTableEntry_t *entry;
     PageTable_t *pdp, *pd, *pt;
@@ -152,15 +171,6 @@ void vmm_destroyAddressSpace(PageTable_t *parent, PageTable_t *pml4)
     memset(pml4, 0, PAGE_SIZE);
 }
 
-PageTable_t *vmm_createAddressSpace(PageTable_t *parent)
-{
-    PageTable_t *pml4 = vmm_createIdentityPage(parent, VMM_USER_ATTRIBUTES);
-    assert(pml4);
-    memcpy(pml4, parent, PAGE_SIZE);
-    
-    return pml4;
-}
-
 void vmm_switchTable(PageTable_t *pml4)
 {
     asm volatile("mov %0, %%cr3" : : "r"(pml4));
@@ -193,6 +203,8 @@ void *virt2phys(PageTable_t *pml4, void *virt)
 
 void vmm_mapPage(PageTable_t *pml4, void *phys, void *virt, const uint64_t attr)
 {
+    lock_acquire(&g_lock);
+
     uint64_t uphys = (uint64_t)phys;
     uint64_t uvirt = RNDWN((uint64_t)virt, PAGE_SIZE);
     
@@ -219,6 +231,8 @@ void vmm_mapPage(PageTable_t *pml4, void *phys, void *virt, const uint64_t attr)
     
     uint64_t ptIndex = (uvirt >> 12) & 0x1FF;
     setEntry(&pt->entries[ptIndex], uphys >> 12, attr);
+    
+    lock_release(&g_lock);
 }
 
 void vmm_identityMapPage(PageTable_t *pml4, void *phys, const uint64_t attr)
@@ -281,14 +295,14 @@ void *vmm_createPage(PageTable_t *pml4, void *virt, const uint64_t attr)
 
 void *vmm_createPages(PageTable_t *pml4, void *virt, const uint64_t pages, const uint64_t attr)
 {
-    void *f1 = vmm_createPage(pml4, virt, attr);
-    if (!f1)
-        return f1;
+    void *addr = NULL;
+    for (uint64_t i = 0; i < pages; i++)
+    {
+        if (!(addr = vmm_createPage(pml4, (void *)((uint64_t)virt + i * PAGE_SIZE), attr)))
+            return NULL;
+    }
     
-    for (uint64_t i = 1; i < pages; i++)
-        vmm_createPage(pml4, (void *)((uint64_t)virt + i * PAGE_SIZE), attr);
-
-    return f1;
+    return addr;
 }
 
 void *vmm_createIdentityPage(PageTable_t *pml4, const uint64_t attr)
@@ -300,5 +314,20 @@ void *vmm_createIdentityPage(PageTable_t *pml4, const uint64_t attr)
     vmm_identityMapPage(pml4, frame, attr);
     FLUSH_TLB(frame);
     
+    return frame;
+}
+
+void *vmm_createIdentityPages(PageTable_t *pml4, const uint64_t pages, const uint64_t attr)
+{
+    void *frame = pmm_getFrames(pages);
+    if (!frame)
+        return NULL;
+
+    for (uint64_t i = 0; i < pages; i++)
+    {
+        vmm_identityMapPage(pml4, (void *)((uint64_t)frame + i * PAGE_SIZE), attr);
+        FLUSH_TLB(frame);
+    }
+
     return frame;
 }

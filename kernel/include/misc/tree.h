@@ -1,7 +1,7 @@
 #pragma once
 
 #include <misc/list.h>
-#include <arch/spinlock.h>
+#include <arch/lock.h>
 
 typedef struct TREE_NODE
 {
@@ -12,13 +12,13 @@ typedef struct TREE_NODE
 
 typedef struct TREE
 {
-    size_t nodes;
     TreeNode_t *root;
-    __ALIGNED__(sizeof(lock_t)) lock_t lock;
+    size_t nodes;
+    lock_t lock;
 } Tree_t;
 
 Tree_t *tree_create();
 void tree_set_root(Tree_t *tree, void *value);
 TreeNode_t *tree_create_node(void *value);
-void tree_insert(Tree_t *tree, TreeNode_t *parent, void *value);
+void tree_insert(Tree_t *tree, TreeNode_t *parent, TreeNode_t *node);
 void tree_remove(Tree_t *tree, TreeNode_t *node);

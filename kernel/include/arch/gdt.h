@@ -38,6 +38,13 @@ typedef struct GDT_ENTRY
     uint8_t baseHigh;
 } __PACKED__ GDTEntry_t;
 
+/// @brief Information about GDT & TSS
+typedef struct GDT_BLOCK
+{
+    GDTEntry_t gdt[8];
+    TSSEntry_t tss;
+} GDTBlock_t;
+
 /// @brief Struct the CPU will receive.
 typedef struct GDT
 {
@@ -66,8 +73,7 @@ typedef struct GDT
 #define USER_CODE_SEGMENT       (GDT_PRESENT | GDT_DPL3 | GDT_TYPE_SEGMENT | GDT_EXEC_CODE_SEGMENT | GDT_READ_CODE_SEGMENT)
 #define USER_DATA_SEGMENT       (GDT_PRESENT | GDT_DPL3 | GDT_TYPE_SEGMENT | GDT_EXEC_DATA_SEGMENT | GDT_READ_DATA_SEGMENT)
 
+#define KERNEL_STACK_SIZE       (8 * PAGE_SIZE)
+
 /// @brief Load the GDT into the CPU.
 void gdt_load();
-
-/// @brief Add stack(s) to the tss in case of switch to ring0 / certain interrupts.
-void tss_late_set();

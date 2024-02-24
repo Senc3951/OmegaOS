@@ -1,59 +1,47 @@
 #include <arch/smp.h>
 #include <arch/apic/madt.h>
 #include <arch/apic/apic.h>
-#include <mem/pmm.h>
-#include <mem/vmm.h>
 #include <dev/pit.h>
-#include <libc/string.h>
+#include <mem/vmm.h>
+#include <io/io.h>
 #include <assert.h>
 #include <panic.h>
 #include <logger.h>
+#include <libc/string.h>
 
-#define AP_TIMEOUT_MS       5
+typedef struct CORE_LAUNCH_INFO
+{
+    uint8_t apStatus;
+    uint8_t bspStatus;
+    uint32_t pml4;
+    uint64_t stackTop;
+    uint64_t apEntry;
+    uint64_t context;
+} __PACKED__ CoreLaunchInfo_t;
+
+uint32_t _CoreCount;
+CoreContext_t *_Cores;
+
 #define AP_TIMEOUT_RETRY    10
-
-#define WAIT_FOR_DELIVERY() ({                                                  \
-    do {                                                                        \
-        asm volatile("pause" : : : "memory");                                   \
-    } while (apic_read_register(LAPIC_REG_INTERRUPT_COMMAND0) & (1 << 12));     \
-})
+#define AP_TIMEOUT_MS       5
 
 #define WAIT_FOR_CORE(i, core) ({                               \
     for (int j = 0; j < AP_TIMEOUT_RETRY; j++) {                \
         if (core->apStatus == 1)                                \
             break;                                              \
         \
-        asm volatile("pause" : : : "memory");                   \
-        sleep(AP_TIMEOUT_MS);                                   \
+        __PAUSE();                                              \
+        pit_sleep_no_int(AP_TIMEOUT_MS);                        \
     }                                                           \
     \
     if (core->apStatus != 1)                                    \
         panic("Failed initializing core %u", _MADT.coreIDs[i]); \
 })
 
-CoreContext_t *_CoreContexts = NULL;
-
-void *createStack(uint64_t size)
-{
-    void *stackStart = vmm_createIdentityPage(_KernelPML4, VMM_KERNEL_ATTRIBUTES);
-    if (!stackStart)
-        return NULL;
-    void *apStack = vmm_createPages(_KernelPML4, (void *)((uint64_t)stackStart + PAGE_SIZE), size / PAGE_SIZE - 1, VMM_KERNEL_ATTRIBUTES);
-    if (!apStack)
-        return NULL;
-    
-    return stackStart;
-}
-
 void smp_init()
 {
-    assert(_CoreContexts = pmm_getFrame());
-    
-    uint8_t bspid;
-    asm volatile("mov $1, %%rax; cpuid; shrl $24, %%ebx;" : "=b"(bspid) : :);
+    extern int ap_entry(CoreContext_t *context);
 
-    extern int ap_entry(uint64_t lapicID);
-    
     // Copy the AP trampoline code to a fixed address
     extern void trampoline_code();
     extern void trampoline_data();
@@ -62,76 +50,39 @@ void smp_init()
     
     vmm_identityMapPage(_KernelPML4, (void *)AP_TRAMPOLINE, VMM_KERNEL_ATTRIBUTES);
     memcpy((void *)AP_TRAMPOLINE, trampolineCodePtr, PAGE_SIZE);
-    LocalApicProcessor_t *apicCore = (LocalApicProcessor_t *)(AP_TRAMPOLINE + ((uint64_t)trampolineDataPtr - (uint64_t)trampolineCodePtr));
-    
-    // Initialize each core
-    for (uint16_t i = 0; i < _MADT.coreCount; i++)
+    CoreLaunchInfo_t *coreInfo = (CoreLaunchInfo_t *)(AP_TRAMPOLINE + ((uint64_t)trampolineDataPtr - (uint64_t)trampolineCodePtr));
+
+    // Initialize cores
+    for (uint32_t i = 0; i < _CoreCount; i++)
     {
-        uint8_t currentLapicID = _MADT.coreIDs[i];
-        CoreContext_t *currentContext = (CoreContext_t *)((uint64_t)_CoreContexts + i * sizeof(CoreContext_t));
-        
-        apicCore->apStatus = apicCore->bspStatus = 0;
-        if (currentLapicID == bspid)  // Skip initializing bspid (current)
+        uint32_t cid = _MADT.coreIDs[i];
+        if (cid == _BspID)
             continue;
         
-        // Send INIT IPI
-        apic_write_register(LAPIC_ERR_STATUS_REGISTER, 0);  // Clear APIC errors
-
-        // Select AP
-        uint32_t v1 = (apic_read_register(LAPIC_REG_INTERRUPT_COMMAND1) & 0x00ffffff) | (i << 24);
-        apic_write_register(LAPIC_REG_INTERRUPT_COMMAND1, v1);
+        CoreContext_t *currentContext = (CoreContext_t *)&_Cores[i];
+        coreInfo->apStatus = coreInfo->bspStatus = 0;
         
-        // Trigger INIT IPI
-        uint32_t v2 = (apic_read_register(LAPIC_REG_INTERRUPT_COMMAND0) & 0xfff32000) | 0xc500;
-        apic_write_register(LAPIC_REG_INTERRUPT_COMMAND0, v2);
-    
-        WAIT_FOR_DELIVERY();
-
-        // Select AP
-        apic_write_register(LAPIC_REG_INTERRUPT_COMMAND1, v1);
-
-        // DeAssert
-        uint32_t v3 = (apic_read_register(LAPIC_REG_INTERRUPT_COMMAND0) & 0xfff00000) | 0x8500;
-        apic_write_register(LAPIC_REG_INTERRUPT_COMMAND0, v3);
-
-        WAIT_FOR_DELIVERY();
-        sleep(10);
-
-        // Send STARTUP IPI
-        for (int j = 0; j < 2; j++)
-        {
-            apic_write_register(LAPIC_ERR_STATUS_REGISTER, 0);  // Clear APIC errors
-
-            // Select AP
-            apic_write_register(LAPIC_REG_INTERRUPT_COMMAND1, v1);
-
-            // Trigger STARTUP IPI
-            uint32_t v4 = (apic_read_register(LAPIC_REG_INTERRUPT_COMMAND0) & 0xfff0f800) | 0x608;
-            apic_write_register(LAPIC_REG_INTERRUPT_COMMAND0, v4);
-
-            sleep(1);
-            WAIT_FOR_DELIVERY();
-        }
+        // Wakeup the core
+        LOG("[BSP] Waking up core %u\n", cid);
+        apic_wakeup_core(cid);
+        WAIT_FOR_CORE(i, coreInfo);
+        LOG("[BSP] Core %u responding\n", cid);
         
-        WAIT_FOR_CORE(i, apicCore);   // Verify the core started running
+        // Initialize core
+        currentContext->id = cid;
+        currentContext->currentProcess = NULL;
+        void *kstack = vmm_createIdentityPages(_KernelPML4, CORE_STACK_SIZE / PAGE_SIZE, VMM_KERNEL_ATTRIBUTES);
+        assert(kstack);
+        currentContext->stack = (uint64_t)kstack + CORE_STACK_SIZE;
+                
+        coreInfo->context = (uint64_t)currentContext;
+        coreInfo->pml4 = (uint32_t)(uint64_t)_KernelPML4;
+        coreInfo->stackTop = (uint32_t)currentContext->stack;
+        coreInfo->apEntry = (uint64_t)ap_entry;
+        coreInfo->bspStatus = 1;    // Signal bsp initialization finished
         
-        // Setup Core information
-        currentContext->lapicID = currentLapicID;    
-
-        // Create stack
-        currentContext->kernelStackSize = AP_STACK_SIZE;
-        void *kernelStack = createStack(currentContext->kernelStackSize);
-        assert(kernelStack);
-        currentContext->kernelStack = (uint32_t)(uint64_t)kernelStack + currentContext->kernelStackSize;
-        
-        apicCore->context = (uint64_t)currentContext;
-        apicCore->pml4 = (uint32_t)(uint64_t)_KernelPML4;
-        apicCore->stackTop = (uint32_t)(uint64_t)currentContext->kernelStack;
-        apicCore->apEntry = (uint64_t)ap_entry;
-        apicCore->bspStatus = 1;    // Signal bsp initialization finished
-        
-        WAIT_FOR_CORE(i, apicCore);   // Verify the core received the status and initialized successfully
+        LOG("[BSP] Core %u initialized with stack at %p - %p\n", cid, kstack, (uint64_t)kstack + CORE_STACK_SIZE);    
     }
     
-    LOG("[BSP] All cores initialized (%u)\n", _MADT.coreCount);
+    LOG("[BSP] All cores initialized (%u)\n", _CoreCount);
 }

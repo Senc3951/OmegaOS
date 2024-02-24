@@ -1,93 +1,97 @@
 #include <sys/scheduler.h>
+#include <arch/apic/apic.h>
 #include <mem/heap.h>
 #include <misc/queue.h>
 #include <io/io.h>
 #include <assert.h>
+#include <panic.h>
+#include <logger.h>
 
 #define SWITCH_PROCESS(process) ({      \
-    process->status = PROCESS_RUNNING;  \
     vmm_switchTable(process->pml4);     \
     x64_context_switch(&process->ctx);  \
 })
 
 extern void x64_context_switch(Context_t *ctx);
 
-Process_t *_CurrentProcess = NULL, *_InitProcess = NULL;
-
-static Queue_t *g_readyQueue = NULL;
-
-static int getNextID()
-{
-    static int id = ROOT_PID;
-    return id++;
-}
+static Queue_t **g_processQueues = NULL;
 
 static Process_t *getNextProcess()
 {
-    Process_t *next = queue_deqeueue(g_readyQueue);
-    if (next->id == ROOT_PID && g_readyQueue->count >= 1)
+    // Search for the last index because the priorities are opposite in order
+    for (int i = PROCESS_PRIORITIES_COUNT - 1; i >= 0; i--)
     {
-        queue_enqueue(g_readyQueue, next);
-        return queue_deqeueue(g_readyQueue);
+        Queue_t *q = g_processQueues[i];
+        if (q->count > 0)
+            return queue_deqeueue(q);
     }
-    
-    return next;
+        
+    panic("No processes in scheduler");
 }
 
 void scheduler_init()
 {
-    assert(_InitProcess);
-    assert(g_readyQueue = queue_create());
+    // Create the process queues
+    assert(g_processQueues = (Queue_t **)kmalloc(sizeof(Queue_t *) * PROCESS_PRIORITIES_COUNT));
+    for (uint16_t i = 0; i < PROCESS_PRIORITIES_COUNT; i++)
+       assert(g_processQueues[i] = queue_create());
     
-    _CurrentProcess = _InitProcess;
-    scheduler_add(_InitProcess);
+    scheduler_add(currentProcess());
+    LOG("Scheduler initialized\n");
 }
 
 void scheduler_add(Process_t *process)
 {
-    process->id = getNextID();
-    process->status = PROCESS_PENDING;
-    
-    queue_enqueue(g_readyQueue, process);
+    assert(process->priority >= 0 && process->priority < PROCESS_PRIORITIES_COUNT);
+    queue_enqueue(g_processQueues[process->priority], process);
 }
 
 void scheduler_remove(Process_t *process)
 {
-    assert(process->id != ROOT_PID);
-    queue_remove(g_readyQueue, process);
+    assert(process->priority >= 0 && process->priority < PROCESS_PRIORITIES_COUNT);
+    queue_remove(g_processQueues[process->priority], process);
 }
 
-void yield()
+void yield(Process_t *process)
 {
-    _CurrentProcess = getNextProcess();
-    SWITCH_PROCESS(_CurrentProcess);
-}
-
-void yield_cs(InterruptStack_t *stack)
-{
-    assert(_CurrentProcess->status == PROCESS_RUNNING);
-    _CurrentProcess->ctx.rip = stack->rip;
-    _CurrentProcess->ctx.cs = stack->cs;
-    _CurrentProcess->ctx.rsp = stack->rsp;
-    _CurrentProcess->ctx.rflags = stack->rflags;
-    _CurrentProcess->ctx.ss = stack->ds;
-    _CurrentProcess->ctx.rax = stack->rax;
-    _CurrentProcess->ctx.rbx = stack->rbx;
-    _CurrentProcess->ctx.rcx = stack->rcx;
-    _CurrentProcess->ctx.rdx = stack->rdx;
-    _CurrentProcess->ctx.rdi = stack->rdi;
-    _CurrentProcess->ctx.rsi = stack->rsi;
-    _CurrentProcess->ctx.rbp = stack->rbp;
-    _CurrentProcess->ctx.r8 = stack->r8;
-    _CurrentProcess->ctx.r9 = stack->r9;
-    _CurrentProcess->ctx.r10 = stack->r10;
-    _CurrentProcess->ctx.r11 = stack->r11;
-    _CurrentProcess->ctx.r12 = stack->r12;
-    _CurrentProcess->ctx.r13 = stack->r13;
-    _CurrentProcess->ctx.r14 = stack->r14;
-    _CurrentProcess->ctx.r15 = stack->r15;   
-    _CurrentProcess->status = PROCESS_PENDING;
+    CoreContext_t *core = currentCPU();
+    if (process)
+        core->currentProcess = process;
+    else
+        core->currentProcess = getNextProcess();
     
-    queue_enqueue(g_readyQueue, _CurrentProcess);
-    yield();
+    SWITCH_PROCESS(core->currentProcess);
+}
+
+Process_t *dispatch(InterruptStack_t *stack)
+{
+    Process_t *current = currentProcess();
+    current->ctx.rip = stack->rip;
+    current->ctx.cs = stack->cs;
+    current->ctx.rsp = stack->rsp;
+    current->ctx.rflags = stack->rflags;
+    current->ctx.ss = stack->ds;
+    current->ctx.rax = stack->rax;
+    current->ctx.rbx = stack->rbx;
+    current->ctx.rcx = stack->rcx;
+    current->ctx.rdx = stack->rdx;
+    current->ctx.rdi = stack->rdi;
+    current->ctx.rsi = stack->rsi;
+    current->ctx.rbp = stack->rbp;
+    current->ctx.r8 = stack->r8;
+    current->ctx.r9 = stack->r9;
+    current->ctx.r10 = stack->r10;
+    current->ctx.r11 = stack->r11;
+    current->ctx.r12 = stack->r12;
+    current->ctx.r13 = stack->r13;
+    current->ctx.r14 = stack->r14;
+    current->ctx.r15 = stack->r15;   
+    
+    queue_enqueue(g_processQueues[current->priority], current);
+    return getNextProcess();
+}
+
+Process_t *currentProcess()
+{
+    return currentCPU()->currentProcess;
 }
