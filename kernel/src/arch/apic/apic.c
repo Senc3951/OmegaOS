@@ -1,9 +1,9 @@
 #include <arch/apic/apic.h>
 #include <arch/apic/ipi.h>
-#include <arch/apic/timer.h>
 #include <arch/apic/madt.h>
 #include <arch/cpu.h>
 #include <arch/isr.h>
+#include <dev/pit.h>
 #include <io/io.h>
 #include <assert.h>
 #include <panic.h>
@@ -104,7 +104,7 @@ void apic_wakeup_core(const uint8_t id)
     if (!ipi_wait_accept())
         panic("[BSP] Failed to deassert core %u\n", id);
         
-    lapic_timer_msleep(10);
+    pit_sleep_no_int(10);
 
     // Send startup ipi
     for (int j = 0; j < 2; j++)
@@ -116,7 +116,7 @@ void apic_wakeup_core(const uint8_t id)
         if (!ipi_wait_accept())
             panic("[BSP] Failed to deliver SIPI %d to core %u\n", j, id);
         
-        lapic_timer_msleep(1);
+        pit_sleep_no_int(1);
     }
 }
 

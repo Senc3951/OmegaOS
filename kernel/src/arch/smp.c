@@ -1,13 +1,13 @@
 #include <arch/smp.h>
 #include <arch/apic/madt.h>
 #include <arch/apic/apic.h>
-#include <arch/apic/timer.h>
+#include <dev/pit.h>
 #include <mem/vmm.h>
 #include <io/io.h>
 #include <assert.h>
 #include <panic.h>
-#include <libc/string.h>
 #include <logger.h>
+#include <libc/string.h>
 
 typedef struct CORE_LAUNCH_INFO
 {
@@ -31,7 +31,7 @@ CoreContext_t *_Cores;
             break;                                              \
         \
         __PAUSE();                                              \
-        lapic_timer_msleep(AP_TIMEOUT_MS);                      \
+        pit_sleep_no_int(AP_TIMEOUT_MS);                        \
     }                                                           \
     \
     if (core->apStatus != 1)                                    \

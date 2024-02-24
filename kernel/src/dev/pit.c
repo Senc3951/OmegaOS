@@ -46,9 +46,27 @@ void pit_init(const uint16_t frequency)
     LOG("PIT timer initialized\n");
 }
 
-void pit_sleep(const size_t milliseconds)
+void pit_sleep_no_int(const size_t ms)
 {
-    g_countDown = milliseconds;
+    uint64_t total_count = 0x4A9 * ms;
+	do
+    {
+        uint16_t count = MIN(total_count, 0xFFFFU);
+        outb(0x43, 0x30);
+        outb(0x40, count & 0xFF);
+        outb(0x40, count >> 8);
+        do
+        {
+            __PAUSE();
+            outb(0x43, 0xE2);
+        } while ((inb(0x40) & (1 << 7)) == 0);
+        total_count -= count;
+	} while ((total_count & ~0xFFFF) != 0);
+}
+
+void pit_sleep(const size_t ms)
+{
+    g_countDown = ms;
     while (g_countDown > 0)
         __PAUSE();
 }

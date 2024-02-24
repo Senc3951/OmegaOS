@@ -4,7 +4,7 @@
 #include <arch/isr.h>
 #include <arch/cpu.h>
 #include <arch/lock.h>
-#include <sys/syscalls.h>
+#include <syscall/syscalls.h>
 #include <assert.h>
 #include <panic.h>
 #include <libc/string.h>

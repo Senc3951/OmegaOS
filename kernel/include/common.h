@@ -36,6 +36,7 @@ extern uint64_t _KernelStart, _KernelEnd, _KernelWritableStart, _KernelWritableE
 
 #define RNDUP(num, nm)          ((num) < nm ? nm : (((num) / nm) * nm))
 #define RNDWN(num, nm)          ((((num) + nm - 1) / nm) * nm)
+#define MIN(n1, n2)             (n1 < n2 ? n1 : n2)
 #define MAX(n1, n2)             (n1 < n2 ? n2 : n1)
 #define UNUSED(x)               (void)(x)
 

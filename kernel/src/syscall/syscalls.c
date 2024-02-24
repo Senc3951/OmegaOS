@@ -1,9 +1,10 @@
-#include <sys/syscalls.h>
+#include <syscall/syscalls.h>
 #include <sys/scheduler.h>
 #include <arch/isr.h>
 #include <io/io.h>
 #include <assert.h>
 #include <logger.h>
+#include <errno.h>
 
 extern ssize_t sys_read(uint32_t fd, void *buf, size_t count);
 extern ssize_t sys_write(uint32_t fd, const void *buf, size_t count);
@@ -40,12 +41,9 @@ static void syscallHandler(InterruptStack_t *stack)
 {
     uint64_t num = stack->rax;
     if (!g_syscalls[num])
-    {
-        sys_exit(0);
-        LOG_PROC("Terminated process because received an invalid syscall (%llu)\n", num);
-    }
-        
-    stack->rax = g_syscalls[num](stack->rdi, stack->rsi, stack->rdx, stack->r10, stack->r8, stack->r9);
+        stack->rax = ENOSYS;
+    else
+        stack->rax = g_syscalls[num](stack->rdi, stack->rsi, stack->rdx, stack->r10, stack->r8, stack->r9);
 }
 
 void syscalls_init()

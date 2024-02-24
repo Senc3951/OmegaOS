@@ -3,7 +3,7 @@
 #include <arch/gdt.h>
 #include <arch/apic/apic.h>
 #include <arch/apic/ioapic.h>
-#include <sys/syscalls.h>
+#include <syscall/syscalls.h>
 #include <panic.h>
 #include <logger.h>
 

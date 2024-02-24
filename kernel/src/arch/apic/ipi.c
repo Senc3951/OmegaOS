@@ -1,6 +1,6 @@
 #include <arch/apic/ipi.h>
 #include <arch/apic/apic.h>
-#include <arch/apic/timer.h>
+#include <dev/pit.h>
 #include <arch/isr.h>
 #include <io/io.h>
 #include <assert.h>
@@ -98,7 +98,7 @@ bool ipi_wait_accept()
         if (icr.delvStatus == 0)
             return true;
 
-        lapic_timer_msleep(1);
+        pit_sleep_no_int(1);
     }
 
     return false;

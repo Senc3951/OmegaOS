@@ -12,16 +12,16 @@
 #include <arch/apic/madt.h>
 #include <arch/apic/apic.h>
 #include <arch/apic/ioapic.h>
-#include <arch/apic/timer.h>
 #include <arch/smp.h>
 #include <mem/pmm.h>
 #include <mem/vmm.h>
 #include <mem/heap.h>
 #include <dev/pit.h>
 #include <dev/ps2/kbd.h>
+#include <dev/timer.h>
 #include <dev/storage/ide.h>
 #include <fs/ext2.h>
-#include <sys/syscalls.h>
+#include <syscall/syscalls.h>
 #include <sys/process.h>
 #include <sys/scheduler.h>
 
@@ -32,10 +32,12 @@ MAKE_SPINLOCK(g_coreLock);
 
 void dev_init()
 {
+    // Keyboard
     assert(ps2_kbd_init());
-    if (_ApicInitialized)
-        lapic_timer_init();
-    else
+    
+    // Timers
+    lapic_timer_init();
+    if (!_ApicInitialized)
         pit_init(PIT_DEFAULT_FREQUENCY);
 }
 
@@ -98,15 +100,14 @@ int _entry(BootInfo_t *bootInfo)
     syscalls_init();
     Process_t *idle = process_init();
     scheduler_init();
-
+    
     extern void shell();
     assert(process_create(idle, "Shell", shell, PriorityInteractive));
     
     LOG("Kernel initialization finished. Jumping to user space\n\n");
     lock_release(&g_coreLock);  // Allow other cores to start scheduling
     
-    // Launch the timer, and start executing processes
-    lapic_timer_start(TIMER_ISR);
+    lapic_timer_periodic(1);
     yield(NULL);
     
     panic("Unreachable");
@@ -114,8 +115,6 @@ int _entry(BootInfo_t *bootInfo)
 
 int ap_entry(CoreContext_t *context)
 {
-    assert(context->id == apic_get_id());
-    
     LOG("[Core %u] Online\n", context->id);
     gdt_load();
     idt_load();
