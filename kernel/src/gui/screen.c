@@ -43,8 +43,6 @@ static void drawc(const char c)
         g_x = 0;
         g_y += BYTES_PER_CHAR;
     }
-    if (g_y > g_fb->height)
-        screen_clear(Black);
 }
 
 void screen_init(Framebuffer_t *fb, PSF1Font_t *font)
@@ -59,8 +57,16 @@ void screen_init(Framebuffer_t *fb, PSF1Font_t *font)
     LOG("Framebuffer at %p (%ux%ux%u)\n", fb->baseAddress, fb->height, fb->width, fb->bytesPerPixel * 8);
 }
 
+static void scroll()
+{
+    screen_clear(Black);
+}
+
 void screen_putc(const char c)
 {
+    if (g_y + BYTES_PER_CHAR > g_fb->height)
+        scroll();
+    
     switch (c)
     {
         case '\t':
